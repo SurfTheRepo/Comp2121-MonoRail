@@ -1,0 +1,125 @@
+puesdo-code for COMP2121 Project
+
+//GLOBAL VARIABLES
+int max_stations = 0 
+int max_stoptime = 0
+char station1[11] //first byte tells you the length of the string. 10 bytes to store the charaters of the string
+char station2[11]
+char station3[11]
+char station4[11]
+char station5[11]
+char station6[11]
+char station7[11]
+char station8[11]
+char station9[11]
+char station10[11]
+int time12			//when there is less than 10 stations you just use the next slot but only count up to max_stations
+int time23
+int time34
+int time45
+int time56
+int time67
+int time78
+int time89
+int time910
+int time101
+
+print("Enter the maximum number of stations:")
+
+while(max_stations == 0 or max_stations < 10) { //i think we would use some jumps here to get through this logic
+	max_stations = getInt()
+	if(max_stations > 10){
+		print("Maximum # Stations is 10")
+	}
+}
+
+n = 0
+while(n < max_stations) {
+	print("Enter name of station %d:", n)
+	station[n] = getString()
+	n++
+}
+
+n = 1
+while(n < max_stations) {
+	print("Time from Station %d to Station %d: ", n, n + 1)
+	time[n][n+1] = getInt()
+	if(time[n][n+1] > 10) {
+		print("Maximum time between stations is 10s")
+		jmp back to start of loop iteration
+	}
+}
+
+while(max_stoptime == 0 and max_stoptime > 5 and max_stoptime < 2){
+	max_stoptime = getInt()
+}
+
+print("Configuration Complete. Please wait")
+
+for(delay(5s)) {
+	flashled()
+}
+
+stopflag = 0
+emergencyflag = 0
+while(true) {
+	while(delay(time[n][n+1]) && emergencyflag = 0) {
+		print(station[n+1])
+		motor = true
+		if(PB0 == 1 or PB1 == 1) {
+			stopflag = 1
+		} elseif (# == 1) {
+			emergencyflag = 1
+		}
+	}
+	if(stopflag = 1) {
+		delay(max_stoptime)
+	}
+}
+
+delay(timeInSec)
+
+motor() 			//turns the motor on
+
+getInt() 			//gets an int from the keyboard
+
+getString() {
+	n = 0
+	while(n < 10) {
+		string[n+1] = getChar()
+	}
+	string[0] = n
+}
+
+getChar() {
+	letterPosition = getInt()
+	letter = getInt()
+	if (letter = 1) {
+		letter = ' ' - letterPosition + 1
+	} elif (letter = 2) {
+		letter = 'a'
+	} elif (letter = 3) {
+		letter = 'd'
+	} elif (letter = 4) {
+		letter = 'g'
+	} elif (letter = 5) {
+		letter - 'j'
+	} elif (letter = 6) {
+		letter = 'm'
+	} elif (letter = 7) {
+		letter = 'p'
+	} elif (letter = 8) {
+		letter = 't'
+	} elif (letter = 9) {
+		letter = 'w'
+	} 
+	letter = letter + letterPosition - 1
+}
+
+printString() {
+	n = string[0]
+	i = 0
+	while(i < n) {
+		printchar(string[i])
+	}
+}
