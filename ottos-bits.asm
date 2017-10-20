@@ -2,11 +2,17 @@
 
 .include "m2560def.inc"
 
-;CONSTANTS
+;================CONSTANTS====================
 
 
+.equ PORTLDIR = 0xF0
+.equ INITCOLMASK = 0xEF
+.equ INITROWMASK = 0x01
+.equ ROWMASK = 0x0F
 
+;================DEFINITIONS=================
 
+.def temp = r16
 
 ;===============MACROS======================
 .marco conflictPush
@@ -104,6 +110,8 @@
     Station9:   .byte 11
     Station10:  .byte 11
 
+;=========times for between 2 stations, max size of 10s =========
+
     time1_2:     .byte 1
     time2_3:     .byte 1
     time3_4:     .byte 1
@@ -115,8 +123,7 @@
     time9_10:    .byte 1
     time10_1:    .byte 1
 	
-.cseg	;;; Got this table from lecture slides
-
+.cseg	
 ; Vector Table
 .org 0x0000
 	jmp RESET
@@ -160,14 +167,138 @@ DEFAULT:
 	reti							; used for interrupts that are not handled
 
 
-;Deals with initialising all the station names and station times
-Initialisation:
-    rcall printMaxStations
+RESET:
+
+;=============Keypad Setup==================
+
+	ldi temp, PORTLDIR ; columns are outputs, rows are inputs
+	STS DDRL, temp     ; cannot use out
 
 
-;Runs the monorail Loop
-Monorail_Loop:
-    
 
-;=====================Prints "Enter the Max"
-printMaxStations:
+MAIN_KEYPAD:
+ldi mask, INITCOLMASK ; initial column mask
+clr col ; initial column
+
+colloop:
+STS PORTL, mask ; set column to mask value (sets column 0 off)
+ldi temp, 0xFF ; implement a delay so the hardware can stabilize
+delay:
+dec temp
+brne delay
+LDS temp, PINL ; read PORTL. Cannot use in 
+andi temp, ROWMASK ; read only the row bits
+cpi temp, 0xF ; check if any rows are grounded
+breq nextcol ; if not go to the next column
+ldi mask, INITROWMASK ; initialise row check
+clr row ; initial row
+
+rowloop:      
+mov temp2, temp
+and temp2, mask ; check masked bit
+brne skipconv ; if the result is non-zero, we need to look again
+rcall convert ; if bit is clear, convert the bitcode
+jmp main ; and start again
+
+skipconv:
+inc row ; else move to the next row
+lsl mask ; shift the mask to the next bit
+jmp rowloop    
+      
+nextcol:     
+cpi col, 3 ; check if we are on the last column
+breq main ; if so, no buttons were pushed,
+; so start again.
+
+sec ; else shift the column mask:
+; We must set the carry bit
+rol mask ; and then rotate left by a bit, shifting the carry into bit zero. We need this to make sure all the rows have pull-up resistors
+inc col ; increment column value
+jmp colloop ; and check the next column convert function converts the row and column given to a binary number and also outputs the value to PORTC. 
+; Inputs come from registers row and col and output is in temp.
+
+convert:
+cpi col, 3 ; if column is 3 we have a letter
+breq letters
+
+cpi row, 3 ; if row is 3 we have a symbol or 0
+breq symbols
+
+cpi row, 0
+breq row1
+
+cpi row, 1
+breq row2
+
+cpi row, 2
+breq row3
+
+row1:
+ldi temp, '1'
+add temp, col ; add the column address
+jmp convert_end
+
+row2:
+ldi temp, '4'
+add temp, col ; add the column address
+jmp convert_end
+
+row3:
+ldi temp, '7'
+add temp, col ; add the column address
+jmp convert_end
+
+
+; to get the offset from 1
+ ; add 1. Value of switch is
+; row*3 + col + 1.
+jmp convert_end
+
+letters:
+ldi temp, 'A'
+add temp, row ; increment from 0xA by the row value
+jmp convert_end
+
+symbols:
+cpi col, 0 ; check if we have a star
+breq star
+cpi col, 1 ; or if we have zero
+breq zero
+
+ldi temp, '#' ; we'll output 0xF for hash
+jmp convert_end
+
+star:
+ldi temp, '*' ; we'll output 0xE for star
+jmp convert_end
+
+zero:
+ldi temp, '0' ; set to zero
+
+convert_end:
+mov r22, temp
+;; SO instead of pushin it to lcd we need to 
+
+rcall lcd_data
+rcall lcd_wait
+rcall sleep_25ms
+rcall sleep_25ms
+rcall sleep_25ms
+rcall sleep_100ms
+ret ; return to caller
+
+
+
+
+;
+;
+; count if this is the second or first input, if first save value and find second value
+; if second, convert the two values into a single value and output to lcd
+;
+;;
+;
+;
+;
+;
+;
+;
