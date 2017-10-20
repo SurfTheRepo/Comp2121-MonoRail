@@ -175,127 +175,381 @@ RESET:
 	STS DDRL, temp     ; cannot use out
 
 
+.def InputCountFlag = r17
+.def firstChar = r18
+clr InputCountFlag
 
 MAIN_KEYPAD:
-ldi mask, INITCOLMASK ; initial column mask
-clr col ; initial column
+	ldi mask, INITCOLMASK ; initial column mask
+	clr col ; initial column
 
-colloop:
-STS PORTL, mask ; set column to mask value (sets column 0 off)
-ldi temp, 0xFF ; implement a delay so the hardware can stabilize
-delay:
-dec temp
-brne delay
-LDS temp, PINL ; read PORTL. Cannot use in 
-andi temp, ROWMASK ; read only the row bits
-cpi temp, 0xF ; check if any rows are grounded
-breq nextcol ; if not go to the next column
-ldi mask, INITROWMASK ; initialise row check
-clr row ; initial row
+	colloop:
+		STS PORTL, mask ; set column to mask value (sets column 0 off)
+		ldi temp, 0xFF ; implement a delay so the hardware can stabilize
 
-rowloop:      
-mov temp2, temp
-and temp2, mask ; check masked bit
-brne skipconv ; if the result is non-zero, we need to look again
-rcall convert ; if bit is clear, convert the bitcode
-jmp main ; and start again
+	delay:
+		dec temp
+		brne delay
+		LDS temp, PINL ; read PORTL. Cannot use in 
+		andi temp, ROWMASK ; read only the row bits
+		cpi temp, 0xF ; check if any rows are grounded
+		breq nextcol ; if not go to the next column
+		ldi mask, INITROWMASK ; initialise row check
+		clr row ; initial row
 
-skipconv:
-inc row ; else move to the next row
-lsl mask ; shift the mask to the next bit
-jmp rowloop    
-      
-nextcol:     
-cpi col, 3 ; check if we are on the last column
-breq main ; if so, no buttons were pushed,
-; so start again.
+	rowloop:      
+		mov temp2, temp
+		and temp2, mask ; check masked bit
+		brne skipconv ; if the result is non-zero, we need to look again
+		rcall convert ; if bit is clear, convert the bitcode
+		jmp main ; and start again
 
-sec ; else shift the column mask:
-; We must set the carry bit
-rol mask ; and then rotate left by a bit, shifting the carry into bit zero. We need this to make sure all the rows have pull-up resistors
-inc col ; increment column value
-jmp colloop ; and check the next column convert function converts the row and column given to a binary number and also outputs the value to PORTC. 
-; Inputs come from registers row and col and output is in temp.
+	skipconv:
+		inc row ; else move to the next row
+		lsl mask ; shift the mask to the next bit
+		jmp rowloop    
+		
+	nextcol:     
+		cpi col, 3 ; check if we are on the last column
+		breq main ; if so, no buttons were pushed,
+		; so start again.
 
-convert:
-cpi col, 3 ; if column is 3 we have a letter
-breq letters
+		sec ; else shift the column mask:
+		; We must set the carry bit
+		rol mask ; and then rotate left by a bit, shifting the carry into bit zero. We need this to make sure all the rows have pull-up resistors
+		inc col ; increment column value
+		jmp colloop ; and check the next column convert function converts the row and column given to a binary number and also outputs the value to PORTC. 
+		; Inputs come from registers row and col and output is in temp.
 
-cpi row, 3 ; if row is 3 we have a symbol or 0
-breq symbols
+	convert:
+		cpi col, 3 ; if column is 3 we have a letter
+		breq letters
 
-cpi row, 0
-breq row1
+		cpi row, 3 ; if row is 3 we have a symbol or 0
+		breq symbols
 
-cpi row, 1
-breq row2
+		cpi row, 0
+		breq row1
 
-cpi row, 2
-breq row3
+		cpi row, 1
+		breq row2
 
-row1:
-ldi temp, '1'
-add temp, col ; add the column address
-jmp convert_end
+		cpi row, 2
+		breq row3
 
-row2:
-ldi temp, '4'
-add temp, col ; add the column address
-jmp convert_end
+	row1:
+		ldi temp, '1'
+		add temp, col ; add the column address
+		jmp convert_end
 
-row3:
-ldi temp, '7'
-add temp, col ; add the column address
-jmp convert_end
+	row2:
+		ldi temp, '4'
+		add temp, col ; add the column address
+		jmp convert_end
 
-
-; to get the offset from 1
- ; add 1. Value of switch is
-; row*3 + col + 1.
-jmp convert_end
-
-letters:
-ldi temp, 'A'
-add temp, row ; increment from 0xA by the row value
-jmp convert_end
-
-symbols:
-cpi col, 0 ; check if we have a star
-breq star
-cpi col, 1 ; or if we have zero
-breq zero
-
-ldi temp, '#' ; we'll output 0xF for hash
-jmp convert_end
-
-star:
-ldi temp, '*' ; we'll output 0xE for star
-jmp convert_end
-
-zero:
-ldi temp, '0' ; set to zero
-
-convert_end:
-mov r22, temp
-;; SO instead of pushin it to lcd we need to 
-
-rcall lcd_data
-rcall lcd_wait
-rcall sleep_25ms
-rcall sleep_25ms
-rcall sleep_25ms
-rcall sleep_100ms
-ret ; return to caller
+	row3:
+		ldi temp, '7'
+		add temp, col ; add the column address
+		jmp convert_end
 
 
+	; to get the offset from 1
+	; add 1. Value of switch is
+	; row*3 + col + 1.
+		jmp convert_end
+
+	letters:
+		ldi temp, 'A'
+		add temp, row ; increment from 0xA by the row value
+		jmp convert_end
+
+	symbols:
+		cpi col, 0 ; check if we have a star
+		breq star
+		cpi col, 1 ; or if we have zero
+		breq zero
+
+		ldi temp, '#' ; we'll output 0xF for hash
+		jmp convert_end
+
+	star:
+		ldi	temp, '*' ; we'll output 0xE for star
+		jmp convert_end
+
+	zero:
+		ldi temp, '0' ; set to zero
+
+	convert_end:
+		mov r22, temp
+		;; SO instead of pushin it to lcd we need to
+		cpi r22, '*'
+		breq endString
+
+		cpi InputCountFlag, 0
+		brne convertTwoOne
+        ldi InputCountFlag, 1
+		ldi firstChar, r22
+		jmp endConvert
+		convertTwoOne:
+			ldi InputCountFlag, 0
+			
+			cpi r22, 1
+			breq Ones
+
+			cpi r22, 2
+			breq Twos
+
+			cpi r22, 3
+			breq Threes
+
+			cpi r22, 4
+			breq Fours
+
+			cpi r22, 5
+			breq Fives
+
+			cpi r22, 6
+			breq Sixes
+
+			cpi r22, 7
+			breq Sevens
+
+			cpi r22, 8
+			breq Eights
+			
+			cpi r22, 9
+			breq Nines
+
+			Ones:
+				cpi firstChar, 1
+				brne endConvert
+				ldi r22, ' ' 
+				rcall lcd_data
+				rcall lcd_wait
+			Twos:
+				cpi firstChar, 1
+				breq printA
+				cpi firstChar, 2
+				breq printB
+				cpi firstChar, 3
+				breq printC
+			Threes:
+				cpi firstChar, 1
+				breq printD
+				cpi firstChar, 2
+				breq printE
+				cpi firstChar, 3
+				breq printF
+			Fours:
+				cpi firstChar, 1
+				breq printG
+				cpi firstChar, 2
+				breq printH
+				cpi firstChar, 3
+				breq printI
+			Fives:
+				cpi firstChar, 1
+				breq printJ
+				cpi firstChar, 2
+				breq printK
+				cpi firstChar, 3
+				breq printL
+			Sixes:
+				cpi firstChar, 1
+				breq printM
+				cpi firstChar, 2
+				breq printN
+				cpi firstChar, 3
+				breq printO
+			Sevens:
+				cpi firstChar, 1
+				breq printP
+				cpi firstChar, 2
+				breq printR
+				cpi firstChar, 3
+				breq printS
+			Eights:
+				cpi firstChar, 1
+				breq printT
+				cpi firstChar, 2
+				breq printU
+				cpi firstChar, 3
+				breq printV
+			Nines:
+				cpi firstChar, 1
+				breq printW
+				cpi firstChar, 2
+				breq printX
+				cpi firstChar, 3
+				breq printY
+
+				rcall lcd_data
+				rcall lcd_wait
 
 
-;
-;
+
+			
+			
+
+
+		endConvert:
+		rcall sleep_25ms
+		rcall sleep_25ms
+		rcall sleep_25ms
+		rcall sleep_100ms
+		ret ; return to caller
+
+
+
+endString:
+	;trigger to set end of string, and ask for new input or run emulator
+
+
+
+printingLetters:
+	;; THIS WILL ONLY PRINT NUMBERS, WE NEED TO STORE NUMBERS
+	printA:
+		ldi r22, 'A'
+		rcall lcd_data
+		rcall lcd_wait
+		rjmp endConvert
+
+	printB:
+		ldi r22, 'B'
+		rcall lcd_data
+		rcall lcd_wait
+		rjmp endConvert
+	printC:
+		ldi r22, 'C'
+		rcall lcd_data
+		rcall lcd_wait
+		rjmp endConvert
+	printD:
+		ldi r22, 'D'
+		rcall lcd_data
+		rcall lcd_wait
+		rjmp endConvert
+	printE:
+		ldi r22, 'E'
+		rcall lcd_data
+		rcall lcd_wait
+		rjmp endConvert
+	printF:
+		ldi r22, 'F'
+		rcall lcd_data
+		rcall lcd_wait
+		rjmp endConvert
+	printG:
+		ldi r22, 'G'
+		rcall lcd_data
+		rcall lcd_wait
+		rjmp endConvert
+	printH:
+		ldi r22, 'H'
+		rcall lcd_data
+		rcall lcd_wait
+		rjmp endConvert
+	printI:
+		ldi r22, 'I'
+		rcall lcd_data
+		rcall lcd_wait
+		rjmp endConvert
+	printJ:
+		ldi r22, 'J'
+		rcall lcd_data
+		rcall lcd_wait
+		rjmp endConvert
+	printK:
+		ldi r22, 'K'
+		rcall lcd_data
+		rcall lcd_wait
+		rjmp endConvert
+	printL:
+		ldi r22, 'L'
+		rcall lcd_data
+		rcall lcd_wait
+		rjmp endConvert
+	printM:
+		ldi r22, 'M'
+		rcall lcd_data
+		rcall lcd_wait
+		rjmp endConvert
+	printN:
+		ldi r22, 'N'
+		rcall lcd_data
+		rcall lcd_wait
+		rjmp endConvert
+	printO:
+		ldi r22, 'O'
+		rcall lcd_data
+		rcall lcd_wait
+		rjmp endConvert
+	printP:
+		ldi r22, 'P'
+		rcall lcd_data
+		rcall lcd_wait
+		rjmp endConvert
+	printR:
+		ldi r22, 'R'
+		rcall lcd_data
+		rcall lcd_wait
+		rjmp endConvert
+	printS:
+		ldi r22, 'S'
+		rcall lcd_data
+		rcall lcd_wait
+		rjmp endConvert
+	printT:
+		ldi r22, 'T'
+		rcall lcd_data
+		rcall lcd_wait
+		rjmp endConvert
+	printU:
+		ldi r22, 'U'
+		rcall lcd_data
+		rcall lcd_wait
+		rjmp endConvert
+	printV:
+		ldi r22, 'V'
+		rcall lcd_data
+		rcall lcd_wait
+		rjmp endConvert
+		
+	printW:
+		ldi r22, 'W'
+		rcall lcd_data
+		rcall lcd_wait
+		rjmp endConvert
+		
+	printX:
+		ldi r22, 'X'
+		rcall lcd_data
+		rcall lcd_wait
+		rjmp endConvert
+
+	printY:
+		ldi r22, 'Y'
+		rcall lcd_data
+		rcall lcd_wait
+		rjmp endConvert
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ; count if this is the second or first input, if first save value and find second value
 ; if second, convert the two values into a single value and output to lcd
 ;
-;;
+;
 ;
 ;
 ;
