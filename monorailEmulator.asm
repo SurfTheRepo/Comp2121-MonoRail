@@ -84,6 +84,12 @@
 .endmacro
 
 ;==========================END MACROS=======================
+
+
+
+
+
+
 .dseg
 	Max_Stations: .byte 1 ;maximum number of stations
     Max_Stoptime: .byte 1 ;maximum stoptime
@@ -114,9 +120,9 @@
 ; Vector Table
 .org 0x0000
 	jmp RESET
-	jmp EXT_INT0						; IRQ0 Handler
-	jmp EXT_INT1						; IRQ1 Handler
-	jmp INTERRUPT2 					; IRQ2 Handler
+	jmp DEFAULT						; IRQ0 Handler
+	jmp DEFAULT						; IRQ1 Handler
+	jmp DEFAULT 					; IRQ2 Handler
 	jmp DEFAULT 					; IRQ3 Handler
 	jmp DEFAULT 					; IRQ4 Handler
 	jmp DEFAULT 					; IRQ5 Handler
@@ -136,7 +142,7 @@
 	jmp DEFAULT 					; Timer/Counter1 Overflow
 	jmp DEFAULT 					; Timer/Counter0 Compare Match A
 	jmp DEFAULT 					; Timer/Counter0 Compare Match B
-	jmp Timer0OVF 					; Timer/Counter0 Overflow
+	jmp DEFAULT 					; Timer/Counter0 Overflow
 	jmp DEFAULT 					; SPI Serial Transfer Complete
 	jmp DEFAULT 					; USART0, Rx Complete
 	jmp DEFAULT 					; USART0 Data register Empty
