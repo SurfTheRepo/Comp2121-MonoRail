@@ -2,17 +2,17 @@
 
 .include "m2560def.inc"
 
-;==========LCD Commands==========
-.set LCD_DISP_ON = 0b00001110
-.set LCD_DISP_OFF = 0b00001000
-.set LCD_DISP_CLR = 0b00000001
+;================CONSTANTS====================
 
-.set LCD_FUNC_SET = 0b00111000 						; 2 lines, 5 by 7 characters
-.set LCD_ENTR_SET = 0b00000110 						; increment, no display shift
-.set LCD_HOME_LINE = 0b10000000 					; goes to 1st line (address 0)
-.set LCD_SEC_LINE = 0b10101000 						; goes to 2nd line (address 40)
-;=================================
 
+.equ PORTLDIR = 0xF0
+.equ INITCOLMASK = 0xEF
+.equ INITROWMASK = 0x01
+.equ ROWMASK = 0x0F
+
+;================DEFINITIONS=================
+
+.def temp = r16
 
 ;===============MACROS======================
 .marco conflictPush
@@ -89,45 +89,6 @@
 	pop r0
 .endmacro
 
-;; LCD STUFF
-.equ LCD_RS = 7
-.equ LCD_E = 6
-.equ LCD_RW = 5
-.equ LCD_BE = 4
-.set LCD_HOME_LINE = 0b00000001
-
-.macro do_lcd_command
-	ldi r21, @0
-	rcall lcd_command
-	rcall lcd_wait
-.endmacro
-
-.macro funky_do_lcd_command
-	mov r21, @0
-	rcall lcd_command
-	rcall lcd_wait
-.endmacro
-
-.macro do_lcd_data
-	mov r22, @0
-	rcall lcd_data
-	rcall lcd_wait
-.endmacro
-
-.macro do_lcd_char
-	ldi r16, @0
-	rcall lcd_data
-	rcall lcd_wait
-.endmacro
-
-.macro lcd_set
-	sbi PORTA, @0
-.endmacro
-
-.macro lcd_clr
-	cbi PORTA, @0
-.endmacro
-
 ;==========================END MACROS=======================
 
 
@@ -136,10 +97,6 @@
 
 
 .dseg
-.org 0x000
-Print_Enter_Stations: .db "Enter the number of stations: "
-
-.org 0x100
 	Max_Stations: .byte 1 ;maximum number of stations
     Max_Stoptime: .byte 1 ;maximum stoptime
     Station1:   .byte 11  ;the first byte of the station tells you how long the name is
@@ -153,6 +110,8 @@ Print_Enter_Stations: .db "Enter the number of stations: "
     Station9:   .byte 11
     Station10:  .byte 11
 
+;=========times for between 2 stations, max size of 10s =========
+
     time1_2:     .byte 1
     time2_3:     .byte 1
     time3_4:     .byte 1
@@ -164,8 +123,7 @@ Print_Enter_Stations: .db "Enter the number of stations: "
     time9_10:    .byte 1
     time10_1:    .byte 1
 	
-.cseg	;;; Got this table from lecture slides
-
+.cseg	
 ; Vector Table
 .org 0x0000
 	jmp RESET
@@ -209,109 +167,138 @@ DEFAULT:
 	reti							; used for interrupts that are not handled
 
 
-;Deals with initialising all the station names and station times
-Initialisation:
-    rcall printMaxStations
+RESET:
 
+;=============Keypad Setup==================
 
-;Runs the monorail Loop
-MonorailLoop:
-    
-
-;===========Prints "Enter the maxumim number of stations"===========;
-printMaxStations:
-	;prologue
-	push r16
-	push r17
-	push Zl
-	push Zh
-	ldi Zl,low(Print_Enter_Stations<<1)	;Load z-pointer and make it pointer to the first constant of "s"
-	ldi Zh,high(Print_Enter_Stations<<1)
-
-	;body ==== print stuff =====;
-	clr r17
-
-	do_lcd_command LCD_DISP_CLR
-	do_lcd_command LCD_HOME_LINE
-	
-	for_printMaxStation1:
-		lpm r16, z+
-		do_lcd_data r16
-		inc r17
-		cpi r17, 16
-		brlo for_printMaxStation1
-	
-	do_lcd_command LCD_SEC_LINE
-	for_PrintMaxStation2:
-		lpm r16, z+
-		do_lcd_data r16
-		inc r17
-		cpi r17, 13
-		brlo for_printMaxStation2
-
-	pop Zh
-	pop Zl
-	pop r17
-	pop r16
-
-	ret
+	ldi temp, PORTLDIR ; columns are outputs, rows are inputs
+	STS DDRL, temp     ; cannot use out
 
 
 
+MAIN_KEYPAD:
+ldi mask, INITCOLMASK ; initial column mask
+clr col ; initial column
+
+colloop:
+STS PORTL, mask ; set column to mask value (sets column 0 off)
+ldi temp, 0xFF ; implement a delay so the hardware can stabilize
+delay:
+dec temp
+brne delay
+LDS temp, PINL ; read PORTL. Cannot use in 
+andi temp, ROWMASK ; read only the row bits
+cpi temp, 0xF ; check if any rows are grounded
+breq nextcol ; if not go to the next column
+ldi mask, INITROWMASK ; initialise row check
+clr row ; initial row
+
+rowloop:      
+mov temp2, temp
+and temp2, mask ; check masked bit
+brne skipconv ; if the result is non-zero, we need to look again
+rcall convert ; if bit is clear, convert the bitcode
+jmp main ; and start again
+
+skipconv:
+inc row ; else move to the next row
+lsl mask ; shift the mask to the next bit
+jmp rowloop    
+      
+nextcol:     
+cpi col, 3 ; check if we are on the last column
+breq main ; if so, no buttons were pushed,
+; so start again.
+
+sec ; else shift the column mask:
+; We must set the carry bit
+rol mask ; and then rotate left by a bit, shifting the carry into bit zero. We need this to make sure all the rows have pull-up resistors
+inc col ; increment column value
+jmp colloop ; and check the next column convert function converts the row and column given to a binary number and also outputs the value to PORTC. 
+; Inputs come from registers row and col and output is in temp.
+
+convert:
+cpi col, 3 ; if column is 3 we have a letter
+breq letters
+
+cpi row, 3 ; if row is 3 we have a symbol or 0
+breq symbols
+
+cpi row, 0
+breq row1
+
+cpi row, 1
+breq row2
+
+cpi row, 2
+breq row3
+
+row1:
+ldi temp, '1'
+add temp, col ; add the column address
+jmp convert_end
+
+row2:
+ldi temp, '4'
+add temp, col ; add the column address
+jmp convert_end
+
+row3:
+ldi temp, '7'
+add temp, col ; add the column address
+jmp convert_end
 
 
-;============LCD STUFF============;
-//LCD COMMANDS
-lcd_command:
-	out PORTF, r21
-	nop
-	lcd_set LCD_E
-	nop
-	nop
-	nop
-	lcd_clr LCD_E
-	nop
-	nop
-	nop
-	ret
+; to get the offset from 1
+ ; add 1. Value of switch is
+; row*3 + col + 1.
+jmp convert_end
 
-lcd_data:
-	out PORTF, r22
-	lcd_set LCD_RS
-	nop
-	nop
-	nop
-	lcd_set LCD_E
-	nop
-	nop
-	nop
-	lcd_clr LCD_E
-	nop
-	nop
-	nop
-	lcd_clr LCD_RS
-	ret
+letters:
+ldi temp, 'A'
+add temp, row ; increment from 0xA by the row value
+jmp convert_end
 
-lcd_wait:
-	push r21
-	clr r21
-	out DDRF, r21
-	out PORTF, r21
-	lcd_set LCD_RW
+symbols:
+cpi col, 0 ; check if we have a star
+breq star
+cpi col, 1 ; or if we have zero
+breq zero
 
-	lcd_wait_loop:
-		nop
-		lcd_set LCD_E
-		nop
-		nop
-		nop
-		in r21, PINF
-		lcd_clr LCD_E
-		sbrc r21, 7
-		rjmp lcd_wait_loop
-	
-	lcd_clr LCD_RW
-	ser r21
-	out DDRF, r21
-	pop r21
-	ret
+ldi temp, '#' ; we'll output 0xF for hash
+jmp convert_end
+
+star:
+ldi temp, '*' ; we'll output 0xE for star
+jmp convert_end
+
+zero:
+ldi temp, '0' ; set to zero
+
+convert_end:
+mov r22, temp
+;; SO instead of pushin it to lcd we need to 
+
+rcall lcd_data
+rcall lcd_wait
+rcall sleep_25ms
+rcall sleep_25ms
+rcall sleep_25ms
+rcall sleep_100ms
+ret ; return to caller
+
+
+
+
+;
+;
+; count if this is the second or first input, if first save value and find second value
+; if second, convert the two values into a single value and output to lcd
+;
+;;
+;
+;
+;
+;
+;
+;
