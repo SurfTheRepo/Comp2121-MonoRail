@@ -24,7 +24,7 @@ int time89
 int time910
 int time101
 
-print("Enter the maximum number of stations:")
+print("Enter the number of stations: ")
 
 while(max_stations == 0 or max_stations < 10) { //i think we would use some jumps here to get through this logic
 	max_stations = getInt()

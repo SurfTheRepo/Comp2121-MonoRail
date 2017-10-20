@@ -2,10 +2,16 @@
 
 .include "m2560def.inc"
 
-;CONSTANTS
+;==========LCD Commands==========
+.set LCD_DISP_ON = 0b00001110
+.set LCD_DISP_OFF = 0b00001000
+.set LCD_DISP_CLR = 0b00000001
 
-
-
+.set LCD_FUNC_SET = 0b00111000 						; 2 lines, 5 by 7 characters
+.set LCD_ENTR_SET = 0b00000110 						; increment, no display shift
+.set LCD_HOME_LINE = 0b10000000 					; goes to 1st line (address 0)
+.set LCD_SEC_LINE = 0b10101000 						; goes to 2nd line (address 40)
+;=================================
 
 
 ;===============MACROS======================
@@ -83,6 +89,45 @@
 	pop r0
 .endmacro
 
+;; LCD STUFF
+.equ LCD_RS = 7
+.equ LCD_E = 6
+.equ LCD_RW = 5
+.equ LCD_BE = 4
+.set LCD_HOME_LINE = 0b00000001
+
+.macro do_lcd_command
+	ldi r21, @0
+	rcall lcd_command
+	rcall lcd_wait
+.endmacro
+
+.macro funky_do_lcd_command
+	mov r21, @0
+	rcall lcd_command
+	rcall lcd_wait
+.endmacro
+
+.macro do_lcd_data
+	mov r22, @0
+	rcall lcd_data
+	rcall lcd_wait
+.endmacro
+
+.macro do_lcd_char
+	ldi r16, @0
+	rcall lcd_data
+	rcall lcd_wait
+.endmacro
+
+.macro lcd_set
+	sbi PORTA, @0
+.endmacro
+
+.macro lcd_clr
+	cbi PORTA, @0
+.endmacro
+
 ;==========================END MACROS=======================
 
 
@@ -91,6 +136,10 @@
 
 
 .dseg
+.org 0x000
+Print_Enter_Stations: .db "Enter the number of stations: "
+
+.org 0x100
 	Max_Stations: .byte 1 ;maximum number of stations
     Max_Stoptime: .byte 1 ;maximum stoptime
     Station1:   .byte 11  ;the first byte of the station tells you how long the name is
@@ -169,6 +218,100 @@ Initialisation:
 MonorailLoop:
     
 
-;=====================Prints "Enter the Max"
+;===========Prints "Enter the maxumim number of stations"===========;
 printMaxStations:
+	;prologue
+	push r16
+	push r17
+	push Zl
+	push Zh
+	ldi Zl,low(Print_Enter_Stations<<1)	;Load z-pointer and make it pointer to the first constant of "s"
+	ldi Zh,high(Print_Enter_Stations<<1)
+
+	;body ==== print stuff =====;
+	clr r17
+
+	do_lcd_command LCD_DISP_CLR
+	do_lcd_command LCD_HOME_LINE
 	
+	for_printMaxStation1:
+		lpm r16, z+
+		do_lcd_data r16
+		inc r17
+		cpi r17, 16
+		brlo for_printMaxStation1
+	
+	do_lcd_command LCD_SEC_LINE
+	for_PrintMaxStation2:
+		lpm r16, z+
+		do_lcd_data r16
+		inc r17
+		cpi r17, 13
+		brlo for_printMaxStation2
+
+	pop Zh
+	pop Zl
+	pop r17
+	pop r16
+
+	ret
+
+
+
+
+
+;============LCD STUFF============;
+//LCD COMMANDS
+lcd_command:
+	out PORTF, r21
+	nop
+	lcd_set LCD_E
+	nop
+	nop
+	nop
+	lcd_clr LCD_E
+	nop
+	nop
+	nop
+	ret
+
+lcd_data:
+	out PORTF, r22
+	lcd_set LCD_RS
+	nop
+	nop
+	nop
+	lcd_set LCD_E
+	nop
+	nop
+	nop
+	lcd_clr LCD_E
+	nop
+	nop
+	nop
+	lcd_clr LCD_RS
+	ret
+
+lcd_wait:
+	push r21
+	clr r21
+	out DDRF, r21
+	out PORTF, r21
+	lcd_set LCD_RW
+
+	lcd_wait_loop:
+		nop
+		lcd_set LCD_E
+		nop
+		nop
+		nop
+		in r21, PINF
+		lcd_clr LCD_E
+		sbrc r21, 7
+		rjmp lcd_wait_loop
+	
+	lcd_clr LCD_RW
+	ser r21
+	out DDRF, r21
+	pop r21
+	ret
