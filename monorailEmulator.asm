@@ -136,8 +136,6 @@
 
 
 .dseg
-.org 0x000
-Print_Enter_Stations: .db "Enter the number of stations: "
 
 .org 0x100
 	Max_Stations: .byte 1 ;maximum number of stations
@@ -205,8 +203,24 @@ Print_Enter_Stations: .db "Enter the number of stations: "
 	jmp DEFAULT 					; Timer/Counter3 Compare Match C
 	jmp DEFAULT 					; Timer/Counter3 Overflow
 .org 0x0072
+;================STRING CONSTANTS===================;
+Print_Enter_Stations: .db "Enter the number of stations: "
 DEFAULT:
 	reti							; used for interrupts that are not handled
+
+RESET:
+
+	;=======Set LCD stuff========;
+	do_lcd_command LCD_FUNC_SET		;2x5x7
+	rcall sleep_5ms
+	do_lcd_command LCD_FUNC_SET		;2x5x7
+	rcall sleep_1ms
+	do_lcd_command LCD_FUNC_SET
+	do_lcd_command LCD_FUNC_SET
+	do_lcd_command LCD_DISP_OFF
+	do_lcd_command LCD_DISP_CLR
+	do_lcd_command LCD_ENTR_SET
+	do_lcd_command LCD_DISP_ON
 
 
 ;Deals with initialising all the station names and station times
@@ -315,3 +329,41 @@ lcd_wait:
 	out DDRF, r21
 	pop r21
 	ret
+
+//sleepstuff
+	//Delay functions taken from previous lab
+	sleep_1ms:
+		push r24
+		push r25
+		ldi r25, high(DELAY_1MS)
+		ldi r24, low(DELAY_1MS)
+
+	delayloop_1ms:
+		sbiw r25:r24, 1
+		brne delayloop_1ms
+		pop r25
+		pop r24
+		ret
+		
+	sleep_5ms:
+		rcall sleep_1ms
+		rcall sleep_1ms
+		rcall sleep_1ms
+		rcall sleep_1ms
+		rcall sleep_1ms
+		ret
+
+	sleep_25ms:
+		rcall sleep_5ms
+		rcall sleep_5ms
+		rcall sleep_5ms
+		rcall sleep_5ms
+		rcall sleep_5ms
+		ret
+
+	sleep_100ms:
+		rcall sleep_25ms
+		rcall sleep_25ms
+		rcall sleep_25ms
+		rcall sleep_25ms
+		ret
