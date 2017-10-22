@@ -174,10 +174,13 @@ RESET:
 	ldi temp, PORTLDIR ; columns are outputs, rows are inputs
 	STS DDRL, temp     ; cannot use out
 
+;
 
+.def stringLength = r19
 .def InputCountFlag = r17
 .def firstChar = r18
 clr InputCountFlag
+clr stringLength
 
 MAIN_KEYPAD:
 	ldi mask, INITCOLMASK ; initial column mask
@@ -266,15 +269,11 @@ MAIN_KEYPAD:
 	symbols:
 		cpi col, 0 ; check if we have a star
 		breq star
-		cpi col, 1 ; or if we have zero
-		breq zero
-
-		ldi temp, '#' ; we'll output 0xF for hash
 		jmp convert_end
 
 	star:
-		ldi	temp, '*' ; we'll output 0xE for star
-		jmp convert_end
+		; SAVE THE STRING
+		jmp endString
 
 	zero:
 		ldi temp, '0' ; set to zero
@@ -382,16 +381,6 @@ MAIN_KEYPAD:
 				breq printX
 				cpi firstChar, 3
 				breq printY
-
-				rcall lcd_data
-				rcall lcd_wait
-
-
-
-			
-			
-
-
 		endConvert:
 		rcall sleep_25ms
 		rcall sleep_25ms
@@ -402,6 +391,7 @@ MAIN_KEYPAD:
 
 
 endString:
+	; called when '*' is pressed
 	;trigger to set end of string, and ask for new input or run emulator
 
 
