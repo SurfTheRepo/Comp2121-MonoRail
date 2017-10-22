@@ -115,7 +115,7 @@
 .endmacro
 
 .macro do_lcd_char
-	ldi r16, @0
+	ldi r22, @0
 	rcall lcd_data
 	rcall lcd_wait
 .endmacro
@@ -130,10 +130,13 @@
 
 ;==========================END MACROS=======================
 
-
-
-
-
+;================defining registers=======================;
+;But try to use just the register number for most of the time
+.def temp1 = r16
+.def temp2 = r17
+.def mask = r18
+.def col = r19
+.def row = r20
 
 .dseg
 
@@ -161,6 +164,8 @@
     time8_9:     .byte 1
     time9_10:    .byte 1
     time10_1:    .byte 1
+
+	temporary_string .byte 10
 	
 .cseg	;;; Got this table from lecture slides
 
@@ -204,7 +209,8 @@
 	jmp DEFAULT 					; Timer/Counter3 Overflow
 .org 0x0072
 ;================STRING CONSTANTS===================;
-Print_Enter_Stations: .db "Enter the number of stations: "
+Print_Enter_Stations: .db "Enter the numberof stations: " ;16-12
+Print_Not_Int: .db "Input 1-9"	;9
 DEFAULT:
 	reti							; used for interrupts that are not handled
 
@@ -226,6 +232,7 @@ RESET:
 ;Deals with initialising all the station names and station times
 Initialisation:
     rcall printMaxStations
+	;r16 is going to hold the value of the max stations
 
 
 ;Runs the monorail Loop
@@ -273,6 +280,135 @@ printMaxStations:
 
 
 
+
+
+;============Int KeyBoard=========;
+INT_KEYPAD:
+	push yl
+	push yh
+	Int_start:
+	ldi mask, INITCOLMASK ; initial column mask
+	clr col ; initial column
+
+	ldi yl, low(temporary_string)
+	ldi yh, high(temporary_string)
+
+	colloop:
+		STS PORTL, mask ; set column to mask value (sets column 0 off)
+		ldi temp, 0xFF ; implement a delay so the hardware can stabilize
+
+	delay:
+		dec temp
+		brne delay
+		LDS temp, PINL ; read PORTL. Cannot use in 
+		andi temp, ROWMASK ; read only the row bits
+		cpi temp, 0xF ; check if any rows are grounded
+		breq nextcol ; if not go to the next column
+		ldi mask, INITROWMASK ; initialise row check
+		clr row ; initial row
+
+	rowloop:      
+		mov temp2, temp
+		and temp2, mask ; check masked bit
+		brne skipconv ; if the result is non-zero, we need to look again
+		rcall convert ; if bit is clear, convert the bitcode
+		jmp main ; and start again
+
+	skipconv:
+		inc row ; else move to the next row
+		lsl mask ; shift the mask to the next bit
+		jmp rowloop    
+		
+	nextcol:     
+		cpi col, 3 ; check if we are on the last column
+		breq main ; if so, no buttons were pushed,
+		; so start again.
+
+		sec ; else shift the column mask:
+		; We must set the carry bit
+		rol mask ; and then rotate left by a bit, shifting the carry into bit zero. We need this to make sure all the rows have pull-up resistors
+		inc col ; increment column value
+		jmp colloop ; and check the next column convert function converts the row and column given to a binary number and also outputs the value to PORTC. 
+		; Inputs come from registers row and col and output is in temp.
+
+	convert:
+		cpi col, 3 ; if column is 3 we have a letter
+		breq IntStart
+
+		cpi row, 3 ; if row is 3 we have a symbol or 0
+		breq symbol
+
+		cpi row, 0
+		breq row1
+
+		cpi row, 1
+		breq row2
+
+		cpi row, 2
+		breq row3
+
+	row1:
+		ldi temp, '1'
+		add temp, col ; add the column address
+		jmp int_end
+
+	row2:
+		ldi temp, '4'
+		add temp, col ; add the column address
+		jmp int_end
+
+	row3:
+		ldi temp, '7'
+		add temp, col ; add the column address
+		jmp int_end
+
+
+	int_end:
+		do_lcd_data temp
+		sts temp, y+
+		ret
+
+	not_int:
+		push r16
+		push r17
+		push Zl
+		push Zh
+		ldi Zl,low(Print_Not_Int<<1)	;Load z-pointer and make it pointer to the first constant of "s"
+		ldi Zh,high(Print_Not_Int<<1)
+
+;body ==== print stuff =====;
+	clr r17
+
+	do_lcd_command LCD_DISP_CLR
+	do_lcd_command LCD_HOME_LINE
+		
+	for_printMaxStation1:
+		lpm r16, z+
+		do_lcd_data r16
+		inc r17
+		cpi r17, 16
+		brlo for_printMaxStation1
+		
+	do_lcd_command LCD_SEC_LINE
+	for_PrintMaxStation2:
+		lpm r16, z+
+		do_lcd_data r16
+		inc r17
+		cpi r17, 13
+		brlo for_printMaxStation2
+	;pops for print
+	pop Zh
+	pop Zl
+	pop r17
+	pop r16
+
+	;pops for function
+	pop r20
+	pop r19
+	pop r18
+	pop r17
+	clr r16
+	ret
 
 ;============LCD STUFF============;
 //LCD COMMANDS
