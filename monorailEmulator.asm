@@ -1,6 +1,15 @@
 ;MonoRail Emulator
 
 .include "m2560def.inc"
+;==============CONSTANTS================;
+
+.equ PORTLDIR = 0xF0
+.equ INITCOLMASK = 0xEF
+.equ INITROWMASK = 0x01
+.equ ROWMASK = 0x0F
+
+.equ F_CPU = 16000000
+.equ DELAY_1MS = F_CPU / 4 / 1000 - 4
 
 ;==========LCD Commands==========
 .set LCD_DISP_ON = 0b00001110
@@ -14,8 +23,9 @@
 ;=================================
 
 
+
 ;===============MACROS======================
-.marco conflictPush
+.macro conflictPush
 	push r0
 	push r1
 	push r2
@@ -52,7 +62,7 @@
 .endmacro
 
 
-.marco conflictPop
+.macro conflictPop
 	pop r16
 	out SREG, r16
 	pop r31
@@ -132,7 +142,7 @@
 
 ;================defining registers=======================;
 ;But try to use just the register number for most of the time
-.def temp1 = r16
+.def temp = r16
 .def temp2 = r17
 .def mask = r18
 .def col = r19
@@ -140,7 +150,7 @@
 
 .dseg
 
-.org 0x100
+.org 0x200
 	Max_Stations: .byte 1 ;maximum number of stations
     Max_Stoptime: .byte 1 ;maximum stoptime
     Station1:   .byte 11  ;the first byte of the station tells you how long the name is
@@ -165,7 +175,7 @@
     time9_10:    .byte 1
     time10_1:    .byte 1
 
-	temporary_string .byte 10
+	temporary_string: .byte 10
 	
 .cseg	;;; Got this table from lecture slides
 
@@ -215,7 +225,22 @@ DEFAULT:
 	reti							; used for interrupts that are not handled
 
 RESET:
+	ldi r16, low(RAMEND)
+	out SPL, r16
+	ldi r16, high(RAMEND)
+	out SPH, r16
 
+
+	ldi temp, PORTLDIR ; columns are outputs, rows are inputs
+	STS DDRL, temp     ; cannot use out
+	
+
+	ser temp					;Set temp to all 1's
+	out DDRF, temp				;Port F = output
+	out DDRA, temp				;Port A = output
+	clr temp
+	out PORTF, temp
+	out PORTA, temp
 	;=======Set LCD stuff========;
 	do_lcd_command LCD_FUNC_SET		;2x5x7
 	rcall sleep_5ms
@@ -227,16 +252,56 @@ RESET:
 	do_lcd_command LCD_DISP_CLR
 	do_lcd_command LCD_ENTR_SET
 	do_lcd_command LCD_DISP_ON
+	
 
+	do_lcd_command LCD_HOME_LINE
+	do_lcd_char 'F'
+	do_lcd_char 'U'
+	do_lcd_char 'C'
+	do_lcd_char 'K'
+	do_lcd_char ' '
+	do_lcd_char 'R'
+	do_lcd_char 'E'
+	do_lcd_char 'S'
+	do_lcd_char 'E'
+	do_lcd_char 'T'
+	do_lcd_char '!'
+\	rcall sleep_100ms
+	rcall sleep_100ms
+	rcall sleep_100ms
+	rcall sleep_100ms
+	rcall sleep_100ms
+	rcall sleep_100ms
+	rcall sleep_100ms
+	rcall sleep_100ms
+	jmp Initialisation
 
 ;Deals with initialising all the station names and station times
 Initialisation:
+	number_stations:
     rcall printMaxStations
 	;r16 is going to hold the value of the max stations
+	
 
+	movw X, Y
+	in YL, SPL
+	in YH, SPH
+	sbiw Y, 10
+	rcall INT_KEYPAD
+
+	do_lcd_char 'u'
+	cpi r16, 11
+	
+	sts Max_Stations, r16
+
+
+	
+
+	loopforever:
+	jmp loopforever
 
 ;Runs the monorail Loop
-MonorailLoop:
+;MonorailLoop:
     
 
 ;===========Prints "Enter the maxumim number of stations"===========;
@@ -246,7 +311,7 @@ printMaxStations:
 	push r17
 	push Zl
 	push Zh
-	ldi Zl,low(Print_Enter_Stations<<1)	;Load z-pointer and make it pointer to the first constant of "s"
+	ldi Zl,low(Print_Enter_Stations<<1)	
 	ldi Zh,high(Print_Enter_Stations<<1)
 
 	;body ==== print stuff =====;
@@ -262,12 +327,13 @@ printMaxStations:
 		cpi r17, 16
 		brlo for_printMaxStation1
 	
+	clr r17
 	do_lcd_command LCD_SEC_LINE
 	for_PrintMaxStation2:
 		lpm r16, z+
 		do_lcd_data r16
 		inc r17
-		cpi r17, 13
+		cpi r17, 12
 		brlo for_printMaxStation2
 
 	pop Zh
@@ -280,137 +346,153 @@ printMaxStations:
 
 
 
-
-
-;============Int KeyBoard=========;
+;=====================================Int KeyBoard===============================;
 INT_KEYPAD:
 	push yl
 	push yh
-	Int_start:
-	ldi mask, INITCOLMASK ; initial column mask
-	clr col ; initial column
-
 	ldi yl, low(temporary_string)
 	ldi yh, high(temporary_string)
+	;do_lcd_char '+'
+	clr r21
+	Int_start:
 
-	colloop:
+	ldi mask, INITCOLMASK ; initial column mask
+	clr col ; initial column
+	clr row
+	clr temp
+	clr temp2
+	
+	
+
+	int_keypad_colloop:
 		STS PORTL, mask ; set column to mask value (sets column 0 off)
 		ldi temp, 0xFF ; implement a delay so the hardware can stabilize
 
-	delay:
+	int_keypad_delay:
 		dec temp
-		brne delay
+		brne int_keypad_delay
 		LDS temp, PINL ; read PORTL. Cannot use in 
 		andi temp, ROWMASK ; read only the row bits
 		cpi temp, 0xF ; check if any rows are grounded
-		breq nextcol ; if not go to the next column
+		breq int_keypad_nextcol ; if not go to the next column
 		ldi mask, INITROWMASK ; initialise row check
 		clr row ; initial row
 
-	rowloop:      
+	int_keypad_rowloop:      
 		mov temp2, temp
 		and temp2, mask ; check masked bit
-		brne skipconv ; if the result is non-zero, we need to look again
-		rcall convert ; if bit is clear, convert the bitcode
-		jmp main ; and start again
+		brne int_keypad_skipconv ; if the result is non-zero, we need to look again
+		rcall int_keypad_convert ; if bit is clear, convert the bitcode
+		jmp Int_start ; and start again
 
-	skipconv:
+	int_keypad_skipconv:
 		inc row ; else move to the next row
 		lsl mask ; shift the mask to the next bit
-		jmp rowloop    
+		jmp int_keypad_rowloop    
 		
-	nextcol:     
+	int_keypad_nextcol:     
 		cpi col, 3 ; check if we are on the last column
-		breq main ; if so, no buttons were pushed,
+		breq Int_start ; if so, no buttons were pushed,
 		; so start again.
 
 		sec ; else shift the column mask:
 		; We must set the carry bit
-		rol mask ; and then rotate left by a bit, shifting the carry into bit zero. We need this to make sure all the rows have pull-up resistors
+		rol mask ;
 		inc col ; increment column value
-		jmp colloop ; and check the next column convert function converts the row and column given to a binary number and also outputs the value to PORTC. 
+		jmp int_keypad_colloop  
 		; Inputs come from registers row and col and output is in temp.
 
-	convert:
+	int_keypad_convert:
 		cpi col, 3 ; if column is 3 we have a letter
-		breq IntStart
+		breq Int_Start
 
 		cpi row, 3 ; if row is 3 we have a symbol or 0
-		breq symbol
+		breq int_keypad_symbol
 
 		cpi row, 0
-		breq row1
+		breq int_keypad_row1
 
 		cpi row, 1
-		breq row2
+		breq int_keypad_row2
 
 		cpi row, 2
-		breq row3
+		breq int_keypad_row3
 
-	row1:
+	int_keypad_row1:
 		ldi temp, '1'
 		add temp, col ; add the column address
 		jmp int_end
 
-	row2:
+	int_keypad_row2:
 		ldi temp, '4'
 		add temp, col ; add the column address
 		jmp int_end
 
-	row3:
+	int_keypad_row3:
 		ldi temp, '7'
 		add temp, col ; add the column address
 		jmp int_end
 
+	int_keypad_symbol:
+		
+		cpi col, 0 ;========END OF LINE========;
+		breq int_parse ;JUMP TO PARSING THE NUMBER	
+
+		cpi col, 2 ;#
+		breq Int_start_jmp
+
+		ldi temp, '0'
+		jmp int_end
+
+		Int_start_jmp:
+		jmp Int_start
 
 	int_end:
 		do_lcd_data temp
-		sts temp, y+
-		ret
-
-	not_int:
-		push r16
+		rcall sleep_100ms
+		rcall sleep_100ms
+		st y+, temp
+		inc r21 ;number is only ever 2 digits long
+		cpi r21, 2
+		brlo Int_start_jmp
+		
+	int_parse:
+		do_lcd_char '*'
+		push temp
 		push r17
-		push Zl
-		push Zh
-		ldi Zl,low(Print_Not_Int<<1)	;Load z-pointer and make it pointer to the first constant of "s"
-		ldi Zh,high(Print_Not_Int<<1)
+		push r18
+		ldi r18, 10
+		ldi yl, low(temporary_string)
+		ldi yh, high(temporary_string)
 
-;body ==== print stuff =====;
-	clr r17
+		Int_parse_loop:
+			ld r17, y+
+			subi r17, '0'
 
-	do_lcd_command LCD_DISP_CLR
-	do_lcd_command LCD_HOME_LINE
-		
-	for_printMaxStation1:
-		lpm r16, z+
-		do_lcd_data r16
-		inc r17
-		cpi r17, 16
-		brlo for_printMaxStation1
-		
-	do_lcd_command LCD_SEC_LINE
-	for_PrintMaxStation2:
-		lpm r16, z+
-		do_lcd_data r16
-		inc r17
-		cpi r17, 13
-		brlo for_printMaxStation2
-	;pops for print
-	pop Zh
-	pop Zl
-	pop r17
-	pop r16
+			cpi r21, 2
+			brne int_parse_end
 
-	;pops for function
-	pop r20
-	pop r19
-	pop r18
-	pop r17
-	clr r16
+			mul r17, r18
+			ld r17, y+
+			add r0, r17
+
+		int_parse_end:
+			do_lcd_char 'F'
+			mov r17, r16
+			pop r17
+			pop r18
+			pop temp
+			;do_lcd_char 'U'
+	
+	pop yh
+	pop yl
+	
 	ret
 
-;============LCD STUFF============;
+
+	
+
+;=================================LCD STUFF===========================;
 //LCD COMMANDS
 lcd_command:
 	out PORTF, r21
