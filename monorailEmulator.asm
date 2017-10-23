@@ -31,8 +31,8 @@
 .def row = r20
 
 .def InputCountFlag = r24
-.def firstChar = r18
-.def stringLength = r19
+.def firstChar = r21
+.def stringLength = r22
 
 ;===============MACROS======================
 .macro conflictPush
@@ -225,6 +225,7 @@
 .org 0x0072
 ;================STRING CONSTANTS===================;
 Print_Enter_Stations: .db "Enter the numberof stations: " ;16-12
+Print_Give_Stn_Names: .db "Giv Stn Name: "
 Print_Not_Int: .db "Input 1-9"	;9
 DEFAULT:
 	reti							; used for interrupts that are not handled
@@ -271,7 +272,7 @@ RESET:
 	do_lcd_char 'E'
 	do_lcd_char 'T'
 	do_lcd_char '!'
-\	rcall sleep_100ms
+	rcall sleep_100ms
 	rcall sleep_100ms
 	rcall sleep_100ms
 	rcall sleep_100ms
@@ -287,22 +288,33 @@ Initialisation:
     rcall printMaxStations
 	;r16 is going to hold the value of the max stations
 	
-
-	movw X, Y
-	in YL, SPL
-	in YH, SPH
-	sbiw Y, 10
 	jmp INT_KEYPAD
 	finished_int_keypad:
+
+	rcall printGivStnName
+	rcall sleep_100ms
+	rcall sleep_100ms
+	rcall sleep_100ms
+	rcall sleep_100ms
+	rcall sleep_100ms
+	rcall sleep_100ms
+	rcall sleep_100ms
+	rcall sleep_100ms
+	rcall sleep_100ms
+	rcall sleep_100ms
+	rcall sleep_100ms
+	rcall sleep_100ms
+	rcall sleep_100ms
+	rcall sleep_100ms
+	rcall sleep_100ms
+	rcall sleep_100ms
 	do_lcd_command LCD_DISP_CLR
 	do_lcd_command LCD_HOME_LINE
-	do_lcd_char 'u'
 	cpi r16, 11
-	
 	sts Max_Stations, r16
 
-
 	
+	jmp STRING_KEYPAD
 
 	loopforever:
 	jmp loopforever
@@ -310,7 +322,6 @@ Initialisation:
 ;Runs the monorail Loop
 ;MonorailLoop:
     
-
 ;===========Prints "Enter the maxumim number of stations"===========;
 printMaxStations:
 	;prologue
@@ -349,6 +360,38 @@ printMaxStations:
 	pop r16
 
 	ret
+
+
+
+printGivStnName:
+	;prologue
+	push r16
+	push r17
+	push Zl
+	push Zh
+	ldi Zl,low(Print_Give_Stn_Names<<1)	
+	ldi Zh,high(Print_Give_Stn_Names<<1)
+
+	;body ==== print stuff =====;
+	clr r17
+
+	do_lcd_command LCD_DISP_CLR
+	do_lcd_command LCD_HOME_LINE
+	
+	for_Print_Give_Stn_Names:
+		lpm r16, z+
+		do_lcd_data r16
+		inc r17
+		cpi r17, 12
+		brlo for_Print_Give_Stn_Names
+
+	pop Zh
+	pop Zl
+	pop r17
+	pop r16
+
+	ret
+
 
 ;=================================KEYPAD FOR STN NAMES====================
 STRING_KEYPAD:
@@ -442,9 +485,9 @@ STRING_KEYPAD:
 			jmp printVal_string
 	symbols_string:
 		cpi col, 0 ; check if we have a star
-		breq star
+		breq star_string
 
-	star:	
+	star_string:	
 		; SAVE THE STRING
 		jmp endString
 
@@ -665,10 +708,12 @@ STRING_KEYPAD:
 			rcall lcd_wait
 			rjmp endConvert_string
 	
-endString:
-	ldi r22, '='
-	rcall lcd_data
-	rcall lcd_wait
+`	endString:
+		ldi r22, '='
+		rcall lcd_data
+		rcall lcd_wait
+		conflictPop
+		jmp loopforever
 
 	
 	; called when '*' is pressed
@@ -678,11 +723,12 @@ endString:
 
 ;=====================================Int KeyBoard===============================;
 INT_KEYPAD:
+	;conflictPush
 	push yl
 	push yh
 	ldi yl, low(temporary_string)
 	ldi yh, high(temporary_string)
-	;do_lcd_char '+'
+	
 	clr r21
 	Int_start:
 
@@ -765,7 +811,7 @@ INT_KEYPAD:
 
 	int_keypad_symbol:
 		
-		cpi col, 0 ;========END OF LINE========;
+		cpi col, 0 ;========END OF LINE========;  *
 		breq int_parse ;JUMP TO PARSING THE NUMBER	
 
 		cpi col, 2 ;#
@@ -807,18 +853,25 @@ INT_KEYPAD:
 			add r0, r17
 
 		int_parse_end:
-			do_lcd_char 'F'
+			;do_lcd_char 'F'
+			rcall sleep_100ms
+			rcall sleep_100ms
+			rcall sleep_100ms
 			mov r17, r16
-			pop r17
 			pop r18
+			pop r17
 			pop temp
 			;do_lcd_char 'U'
 	
 	pop yh
 	pop yl
+		
 	
-	jmp finished_int_keypad
+	;conflictPop
 
+	
+	;ret 
+	jmp finished_int_keypad
 
 	
 
