@@ -182,7 +182,7 @@ RESET:
 clr InputCountFlag
 clr stringLength
 
-MAIN_KEYPAD:
+STRING_KEYPAD:
 	ldi mask, INITCOLMASK ; initial column mask
 	clr col ; initial column
 
@@ -205,7 +205,7 @@ MAIN_KEYPAD:
 		and temp2, mask ; check masked bit
 		brne skipconv ; if the result is non-zero, we need to look again
 		rcall convert ; if bit is clear, convert the bitcode
-		jmp main ; and start again
+		jmp STRING_KEYPAD ; and start again
 
 	skipconv:
 		inc row ; else move to the next row
