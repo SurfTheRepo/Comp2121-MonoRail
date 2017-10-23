@@ -568,7 +568,7 @@ endString:
 	;==========LCD Display Code Below (Note r16)==========
 ; Delay Constants
 .equ F_CPU = 16000000
-.equ DELAY_1MS = F_CPU / 4 / 1000 - 4 				; 4 cycles per iteration - setup/call-return overhead
+.equ DELAY_1MS = F_CPU / 4 / 1000 - 4 				;4 cycles per iteration - setup/call-return overhead
 
 .equ LCD_RS = 7
 .equ LCD_E = 6

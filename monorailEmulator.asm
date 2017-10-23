@@ -22,7 +22,17 @@
 .set LCD_SEC_LINE = 0b10101000 						; goes to 2nd line (address 40)
 ;=================================
 
+;================DEFINITIONS=================
 
+.def temp = r16
+.def temp2 = r17
+.def mask = r18
+.def col = r19
+.def row = r20
+
+.def InputCountFlag = r24
+.def firstChar = r18
+.def stringLength = r19
 
 ;===============MACROS======================
 .macro conflictPush
@@ -140,13 +150,8 @@
 
 ;==========================END MACROS=======================
 
-;================defining registers=======================;
-;But try to use just the register number for most of the time
-.def temp = r16
-.def temp2 = r17
-.def mask = r18
-.def col = r19
-.def row = r20
+
+
 
 .dseg
 
@@ -345,6 +350,329 @@ printMaxStations:
 
 	ret
 
+;=================================KEYPAD FOR STN NAMES====================
+STRING_KEYPAD:
+	conflictPush
+	ldi mask, INITCOLMASK ; initial column mask
+	clr col ; initial column
+
+	colloop_string:
+		STS PORTL, mask ; set column to mask value (sets column 0 off)
+		ldi temp, 0xFF ; implement a delay so the hardware can stabilize
+
+	delay_string:
+		dec temp
+		brne delay_string
+		LDS temp, PINL ; read PORTL. Cannot use in 
+		andi temp, ROWMASK ; read only the row bits
+		cpi temp, 0xF ; check if any rows are grounded
+		breq nextcol_string ; if not go to the next column
+		ldi mask, INITROWMASK ; initialise row check
+		clr row ; initial row
+
+	rowloop_string:      
+		mov temp2, temp
+		and temp2, mask ; check masked bit
+		brne skipconv_string ; if the result is non-zero, we need to look again
+		rcall convert_string ; if bit is clear, convert the bitcode
+		jmp STRING_KEYPAD ; and start again
+
+	skipconv_string:
+		inc row ; else move to the next row
+		lsl mask ; shift the mask to the next bit
+		jmp rowloop_string
+		
+	nextcol_string:     
+		cpi col, 3 ; check if we are on the last column
+		breq STRING_KEYPAD ; if so, no buttons were pushed,
+		; so start again.
+
+		sec ; else shift the column mask:
+		; We must set the carry bit
+		rol mask ; and then rotate left by a bit, shifting the carry into bit zero. We need this to make sure all the rows have pull-up resistors
+		inc col ; increment column value
+		jmp colloop_string ; and check the next column convert function converts the row and column given to a binary number and also outputs the value to PORTC. 
+		; Inputs come from registers row and col and output is in temp.
+
+	convert_string:
+		cpi col, 3 ; if column is 3 we have a letter
+		breq letters_string
+
+		cpi row, 3 ; if row is 3 we have a symbol or 0
+		breq symbols_string
+
+		cpi row, 0
+		breq row1_string
+
+		cpi row, 1
+		breq row2_string
+
+		cpi row, 2
+		breq row3_string
+
+	row1_string:
+		ldi temp, 1
+		add temp, col ; add the column address
+		jmp convert_end_string
+
+	row2_string:
+		ldi temp, 4
+		add temp, col ; add the column address
+		jmp convert_end_string
+
+	row3_string:
+		ldi temp, 7
+		add temp, col ; add the column address
+		jmp convert_end_string
+
+
+	; to get the offset from 1
+	; add 1. Value of switch is
+	; row*3 + col + 1.
+		jmp convert_end_string
+
+	letters_string:
+		ldi temp, 'A'
+		add temp, row ; increment from 0xA by the row value
+		cpi temp, 'A'
+		breq printZ
+		jmp endString
+		printZ:
+			ldi r22, 'Z'
+			jmp printVal_string
+	symbols_string:
+		cpi col, 0 ; check if we have a star
+		breq star
+
+	star:	
+		; SAVE THE STRING
+		jmp endString
+
+	zero:
+		ldi temp, '0' ; set to zero
+
+	convert_end_string:
+		rcall sleep_100ms
+		rcall sleep_100ms
+		mov r22, temp
+		cpi InputCountFlag, 0
+		brne convertTwoOne_jmp
+		
+        ldi InputCountFlag, 1
+		mov firstChar, r22
+		jmp endConvert_string
+
+		convertTwoOne_jmp:
+			jmp convertTwoOne
+
+		Ones:
+			cpi firstChar, 1
+			brne endConvert_string
+			ldi r22, ' ' 
+			jmp printVal_string
+		Twos:
+			cpi firstChar, 1
+			breq printA
+			cpi firstChar, 2
+			breq printB
+			cpi firstChar, 3
+			breq printC
+			jmp endConvert_string
+			printA:
+				ldi r22, 'A'
+				jmp printVal_string
+			printB:
+				ldi r22, 'B'
+				jmp printVal_string
+			printC:
+				ldi r22, 'C'
+				jmp printVal_string
+
+		Threes:
+			cpi firstChar, 1
+			breq printD
+			cpi firstChar, 2
+			breq printE
+			cpi firstChar, 3
+			breq printF
+			jmp endConvert_string
+			printD:
+				ldi r22, 'D'
+				jmp printVal_string
+			printE:
+				ldi r22, 'E'
+				jmp printVal_string	
+			printF:
+				ldi r22, 'F'
+				jmp printVal_string
+
+		Fours:
+			cpi firstChar, 1
+			breq printG
+			cpi firstChar, 2
+			breq printH
+			cpi firstChar, 3
+			breq printI
+			jmp endConvert_string
+			printG:
+				ldi r22, 'G'
+				jmp printVal_string
+			printH:
+				ldi r22, 'H'
+				jmp printVal_string
+			printI:
+				ldi r22, 'I'
+				jmp printVal_string
+
+	
+			endConvert_string:
+			rcall sleep_25ms
+			rcall sleep_25ms
+			rcall sleep_25ms
+			rcall sleep_100ms
+			ret ; return to caller
+
+		convertTwoOne:
+		
+			ldi InputCountFlag, 0
+			
+			cpi r22, 1
+			breq Ones
+
+			cpi r22, 2
+			breq Twos
+
+			cpi r22, 3
+			breq Threes
+
+			cpi r22, 4
+			breq Fours
+
+			cpi r22, 5
+			breq Fives
+			jmp nextChunk
+
+			Nines:
+				cpi firstChar, 1
+				breq printW
+				cpi firstChar, 2
+				breq printX
+				cpi firstChar, 3
+				breq printY
+				jmp endConvert_string
+				printW:
+					ldi r22, 'W'
+					jmp printVal_string
+				printX:
+					ldi r22, 'X'
+					jmp printVal_string
+				printY:
+					ldi r22, 'Y'
+					jmp printVal_string
+
+			nextChunk:
+			cpi r22, 6
+			breq Sixes
+
+			cpi r22, 7
+			breq Sevens
+
+			cpi r22, 8
+			breq Eights
+			
+			cpi r22, 9
+			breq Nines
+			
+		
+
+			Fives:
+				cpi firstChar, 1
+				breq printJ
+				cpi firstChar, 2
+				breq printK
+				cpi firstChar, 3
+				breq printL
+				jmp endConvert_string
+				printJ:
+					ldi r22, 'J'
+					jmp printVal_string
+				printK:
+					ldi r22, 'K'
+					jmp printVal_string
+				printL:
+					ldi r22, 'L'
+					jmp printVal_string
+					
+			Sixes:
+				cpi firstChar, 1
+				breq printM
+				cpi firstChar, 2
+				breq printN
+				cpi firstChar, 3
+				breq printO
+				jmp endConvert_string
+				printM:
+					ldi r22, 'M'
+					jmp printVal_string
+				printN:
+					ldi r22, 'N'
+					jmp printVal_string
+				printO:
+					ldi r22, 'O'
+					jmp printVal_string
+					
+			Sevens:
+				cpi firstChar, 1
+				breq printP
+				cpi firstChar, 2
+				breq printR
+				cpi firstChar, 3
+				breq printS
+				jmp endConvert_string
+				printP:
+					ldi r22, 'P'
+					jmp printVal_string
+				printR:
+					ldi r22, 'R'
+					jmp printVal_string
+				printS:
+					ldi r22, 'S'
+					jmp printVal_string
+
+
+			Eights:
+				cpi firstChar, 1
+				breq printT
+				cpi firstChar, 2
+				breq printU
+				cpi firstChar, 3
+				breq printV
+				jmp endConvert_string
+				printT:
+					ldi r22, 'T'
+					jmp printVal_string
+				printU:
+					ldi r22, 'U'
+					jmp printVal_string
+				printV:
+					ldi r22, 'V'
+					jmp printVal_string
+
+			
+
+		printVal_string:
+			rcall lcd_data
+			rcall lcd_wait
+			rjmp endConvert_string
+	
+endString:
+	ldi r22, '='
+	rcall lcd_data
+	rcall lcd_wait
+
+	
+	; called when '*' is pressed
+	;trigger to set end of string, and ask for new input or run emulator
 
 
 
