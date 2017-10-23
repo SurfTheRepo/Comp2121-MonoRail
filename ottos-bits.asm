@@ -4,7 +4,6 @@
 
 ;================CONSTANTS====================
 
-
 .equ PORTLDIR = 0xF0
 .equ INITCOLMASK = 0xEF
 .equ INITROWMASK = 0x01
