@@ -287,8 +287,10 @@ Initialisation:
 	in YL, SPL
 	in YH, SPH
 	sbiw Y, 10
-	rcall INT_KEYPAD
-
+	jmp INT_KEYPAD
+	finished_int_keypad:
+	do_lcd_command LCD_DISP_CLR
+	do_lcd_command LCD_HOME_LINE
 	do_lcd_char 'u'
 	cpi r16, 11
 	
@@ -487,7 +489,7 @@ INT_KEYPAD:
 	pop yh
 	pop yl
 	
-	ret
+	jmp finished_int_keypad
 
 
 	
