@@ -179,16 +179,16 @@
     Station9:   .byte 11
     Station10:  .byte 11
 
-    time1_2:     .byte 1
-    time2_3:     .byte 1
-    time3_4:     .byte 1
-    time4_5:     .byte 1
-    time5_6:     .byte 1
-    time6_7:     .byte 1
-    time7_8:     .byte 1
-    time8_9:     .byte 1
-    time9_10:    .byte 1
-    time10_1:    .byte 1
+    time1:     .byte 1
+    time2:     .byte 1
+    time3:     .byte 1
+    time4:     .byte 1
+    time5:     .byte 1
+    time6:     .byte 1
+    time7:     .byte 1
+    time8:     .byte 1
+    time9:    .byte 1
+    time10:    .byte 1
 
 	temporary_string: .byte 10
 	
@@ -238,8 +238,10 @@
 	Print_Give_Stn_Names: .db "Giv Stn Name: "
 	Print_Not_Int: .db "Input 1-9"	;9
 	Print_Success: .db "SUCCESS!"
-
+	Print_Enter_Times: .db "Enter Times:"
 	Print_Enter_Name: .db "Give Stn Nm "
+	Print_too_Large: .db "Too Large Redo"
+	Print_Stop_times: .db "Enter Stop Time:";16
 DEFAULT:
 	reti							; used for interrupts that are not handled
 
@@ -310,19 +312,19 @@ Initialisation:
 	out SPL, YL
 	out SPH, YH
 
-	number_stations:
-    call printMaxStations	
+
+	call number_stations
 	
-	call INT_KEYPAD
-
-	lds r16, temporary_string
-	out PORTC, r16
-	cpi r16, 12	
-	brsh number_stations
-
-
 	call FindStnNames
+
 	call sleep_1s
+
+	call FindTimes
+
+	call findStopTime
+
+	
+		
 
 
 	jmp start_emulator
@@ -331,7 +333,10 @@ Initialisation:
 loopforever:
 	jmp loopforever
 
+;Runs the monorail Loop
 start_emulator:
+	do_lcd_command LCD_SEC_LINE
+	do_lcd_command LCD_DISP_CLR
 	do_lcd_command LCD_HOME_LINE
 	do_lcd_char 'P'
 	do_lcd_char 'L'
@@ -344,19 +349,13 @@ start_emulator:
 	do_lcd_char 'A'
 	do_lcd_char 'I'
 	do_lcd_char 'T'
-	do_lcd_char ' '
-	do_lcd_char '5'
-	do_lcd_char ' '
-	do_lcd_char 'S'
-	do_lcd_char 'E'
-	do_lcd_char 'C'
-	do_lcd_char 'S'
-	rcall sleep_1s
-	rcall sleep_1s
-	rcall sleep_1s
-	rcall sleep_1s
-	rcall sleep_1s
 
+	rcall sleep_1s
+	rcall sleep_1s
+	rcall sleep_1s
+	rcall sleep_1s
+	rcall sleep_1s
+	do_lcd_command LCD_DISP_CLR
 	do_lcd_command LCD_HOME_LINE
 	do_lcd_char 'E'
 	do_lcd_char 'M'
@@ -369,6 +368,7 @@ start_emulator:
 	jmp emulator
 
 
+;MonorailLoop:
 emulator:
 		ldi r16, 20
 		out PORTC, r16
@@ -377,134 +377,443 @@ emulator:
 		out PORTC, r16
 		rcall sleep_1s
 		jmp emulator	
-;Runs the monorail Loop
-;MonorailLoop:
-    
+
+
+
 ;===========Prints "Enter the maxumim number of stations"===========;
-printMaxStations:
-	;prologue
-	push r16
-	push r17
-	push Zl
-	push Zh
-	ldi Zl,low(Print_Enter_Stations<<1)	
-	ldi Zh,high(Print_Enter_Stations<<1)
+printStatements:
+	printMaxStations:
+		;prologue
+		push r16
+		push r17
+		push Zl
+		push Zh
+		ldi Zl,low(Print_Enter_Stations<<1)	
+		ldi Zh,high(Print_Enter_Stations<<1)
 
-	;body ==== print stuff =====;
-	clr r17
+		;body ==== print stuff =====;
+		clr r17
 
-	do_lcd_command LCD_DISP_CLR
-	do_lcd_command LCD_HOME_LINE
-	
-	for_printMaxStation1:
-		lpm r16, z+
-		do_lcd_data r16
-		inc r17
-		cpi r17, 16
-		brlo for_printMaxStation1
-	
-	clr r17
+		do_lcd_command LCD_DISP_CLR
+		do_lcd_command LCD_HOME_LINE
+		
+		for_printMaxStation1:
+			lpm r16, z+
+			do_lcd_data r16
+			inc r17
+			cpi r17, 16
+			brlo for_printMaxStation1
+		
+		clr r17
+		do_lcd_command LCD_SEC_LINE
+		for_PrintMaxStation2:
+			lpm r16, z+
+			do_lcd_data r16
+			inc r17
+			cpi r17, 12
+			brlo for_printMaxStation2
+
+		pop Zh
+		pop Zl
+		pop r17
+		pop r16
+
+		ret
+
+	printEnterStation:
+		;prologue
+		push r16
+		push r17
+		push Zl
+		push Zh
+		ldi Zl,low(Print_Enter_Name<<1)	
+		ldi Zh,high(Print_Enter_Name<<1)
+
+		;body ==== print stuff =====;
+		clr r17
+
+		do_lcd_command LCD_DISP_CLR
+		do_lcd_command LCD_HOME_LINE
+		
+		for_Print_Enter_Station:
+			lpm r16, z+
+			do_lcd_data r16
+			inc r17
+			cpi r17, 12
+			brlo for_Print_Enter_Station
+
+		pop Zh
+		pop Zl
+		pop r17
+		pop r16
+
+		ret
+	printEnterTimes:
+		;prologue
+		push r16
+		push r17
+		push Zl
+		push Zh
+		ldi Zl,low(Print_Enter_Times<<1)	
+		ldi Zh,high(Print_Enter_Times<<1)
+
+		;body ==== print stuff =====;
+		clr r17
+
+		do_lcd_command LCD_DISP_CLR
+		do_lcd_command LCD_HOME_LINE
+		
+		for_Print_Enter_Times:
+			lpm r16, z+
+			do_lcd_data r16
+			inc r17
+			cpi r17, 12
+			brlo for_Print_Enter_Times
+
+		pop Zh
+		pop Zl
+		pop r17
+		pop r16
+
+		ret
+
+	printSuccess:
+		;prologue
+		push r16
+		push r17
+		push Zl
+		push Zh
+		ldi Zl,low(Print_Success<<1)	
+		ldi Zh,high(Print_Success<<1)
+
+		;body ==== print stuff =====;
+		clr r17
+
+		do_lcd_command LCD_DISP_CLR
+		do_lcd_command LCD_HOME_LINE
+		
+		for_Print_Success:
+			lpm r16, z+
+			do_lcd_data r16
+			inc r17
+			cpi r17, 8
+			brlo for_Print_Success
+
+		pop Zh
+		pop Zl
+		pop r17
+		pop r16
+
+		ret
+	print_TooLARGE:
+		push r16
+		push r17
+		push Zl
+		push Zh
+		ldi Zl,low(Print_too_Large<<1)	
+		ldi Zh,high(Print_Too_Large<<1)
+
+		;body ==== print stuff =====;
+		clr r17
+
+		;do_lcd_command LCD_DISP_CLR
+		do_lcd_command LCD_SEC_LINE
+		
+		for_Print_TooLarge:
+			lpm r16, z+
+			do_lcd_data r16
+			inc r17
+			cpi r17, 14
+			brlo for_Print_TooLarge
+		call sleep_1s
+
+		call printEnterTimes
+		do_lcd_command LCD_SEC_LINE
+		pop Zh
+		pop Zl
+		pop r17
+		pop r16
+
+		ret
+	printGivStnName:
+		;prologue
+		push r16
+		push r17
+		push Zl
+		push Zh
+		ldi Zl,low(Print_Give_Stn_Names<<1)	
+		ldi Zh,high(Print_Give_Stn_Names<<1)
+
+		;body ==== print stuff =====;
+		clr r17
+
+		;do_lcd_command LCD_DISP_CLR
+		do_lcd_command LCD_SEC_LINE
+		
+		for_Print_Give_Stn_Names:
+			lpm r16, z+
+			do_lcd_data r16
+			inc r17
+			cpi r17, 12
+			brlo for_Print_Give_Stn_Names
+
+		pop Zh
+		pop Zl
+		pop r17
+		pop r16
+
+		ret
+	printEnterStopTime:
+		;prologue
+		push r16
+		push r17
+		push Zl
+		push Zh
+		ldi Zl,low(Print_Stop_times<<1)	
+		ldi Zh,high(Print_Stop_times<<1)
+
+		;body ==== print stuff =====;
+		clr r17
+
+		do_lcd_command LCD_DISP_CLR
+		do_lcd_command LCD_HOME_LINE
+		
+		for_Print_Enter_Stop:
+			lpm r16, z+
+			do_lcd_data r16
+			inc r17
+			cpi r17, 16
+			brlo for_Print_Enter_Stop
+
+		pop Zh
+		pop Zl
+		pop r17
+		pop r16
+
+		ret
+
+
+findStopTime:
+	call printEnterStopTime
+	call sleep_500ms
 	do_lcd_command LCD_SEC_LINE
-	for_PrintMaxStation2:
-		lpm r16, z+
-		do_lcd_data r16
-		inc r17
-		cpi r17, 12
-		brlo for_printMaxStation2
+	call INT_KEYPAD
 
-	pop Zh
-	pop Zl
-	pop r17
-	pop r16
-
+	lds r16, temporary_string
+	;out PORTC, r16
+	cpi r16, 12	
+	brsh findStopTime
+	sts Max_Stoptime, r16
 	ret
+number_stations:
+	call printMaxStations	
+	call sleep_500ms
+	call INT_KEYPAD
 
-printEnterStation:
-	;prologue
-	push r16
-	push r17
-	push Zl
-	push Zh
-	ldi Zl,low(Print_Enter_Name<<1)	
-	ldi Zh,high(Print_Enter_Name<<1)
-
-	;body ==== print stuff =====;
-	clr r17
-
-	do_lcd_command LCD_DISP_CLR
-	do_lcd_command LCD_HOME_LINE
+	lds r16, temporary_string
+	out PORTC, r16
+	cpi r16, 12	
+	brsh number_stations
 	
-	for_Print_Enter_Station:
-		lpm r16, z+
-		do_lcd_data r16
-		inc r17
-		cpi r17, 12
-		brlo for_Print_Enter_Station
-
-	pop Zh
-	pop Zl
-	pop r17
-	pop r16
-
+	sts Max_Stations, r16
 	ret
-
-printSuccess:
-	;prologue
+;================FINDS TIMES BETWEEN STNs===========================;
+FindTimes:
+	lds r15, Max_Stations
+	inc r15
+	clr r16
 	push r16
-	push r17
-	push Zl
-	push Zh
-	ldi Zl,low(Print_Success<<1)	
-	ldi Zh,high(Print_Success<<1)
+	stnTimeLoop:
+		pop r16
+		inc r16
+		cp r16, r15
+		brsh times_full_JMP
+		push r16
+		do_lcd_command LCD_DISP_CLR
+		call printEnterTimes	
+		do_lcd_command LCD_SEC_LINE
+		jmp over_times_full
+		times_full_JMP:
+			jmp times_full
+		over_times_full:
+		out PORTC, r16
+		rcall sleep_100ms
 
-	;body ==== print stuff =====;
-	clr r17
+		cpi r16, 1
+		breq stn1Time
+		cpi r16, 2
+		breq stn2Time
+		cpi r16, 3
+		breq stn3Time
+		
+		jmp next_time_bunch1
+		stn1Time:
+			ldi yL, low(time1)
+			ldi yH, high(time1)
+			call INT_KEYPAD
+			lds r16, temporary_string
+			; out PORTC, r16
+			cpi r16, 12
+			brsh stn1Time_Big
+			st Y, r16
+			jmp stnTimeLoop
+			stn1Time_Big:
+			call print_TooLARGE
+			jmp stn1Time
+			
+		stn2Time:
+			ldi yL, low(time2)
+			ldi yH, high(time2)
+			call INT_KEYPAD
+			lds r16, temporary_string
+			; out PORTC, r16
+			cpi r16, 12
+			brsh stn2Time_Big
+			st Y, r16
+			jmp stnTimeLoop
+			stn2Time_Big:
+			call print_TooLARGE
+			jmp stn2Time
+		stn3Time:
+			ldi yL, low(time3)
+			ldi yH, high(time3)
+			call INT_KEYPAD
+			lds r16, temporary_string
+			; out PORTC, r16
+			cpi r16, 12
+			brsh stn3Time_Big
+			st Y, r16
+			jmp stnTimeLoop
+			stn3Time_Big:
+			call print_TooLARGE
+			jmp stn3Time
 
-	do_lcd_command LCD_DISP_CLR
-	do_lcd_command LCD_HOME_LINE
-	
-	for_Print_Success:
-		lpm r16, z+
-		do_lcd_data r16
-		inc r17
-		cpi r17, 8
-		brlo for_Print_Success
+		next_time_bunch1:
+		cpi r16, 4
+		breq stn4Time
+		cpi r16, 5
+		breq stn5Time
+		jmp next_time_bunch2
+		
+		stn4Time:
+			ldi yL, low(time4)
+			ldi yH, high(time4)
+			call INT_KEYPAD
+			lds r16, temporary_string
+			; out PORTC, r16
+			cpi r16, 12
+			brsh stn4Time_Big
+			st Y, r16
+			jmp stnTimeLoop
+			stn4Time_Big:
+			call print_TooLARGE
+			jmp stn4Time
+		stn5Time:
+			ldi yL, low(time5)
+			ldi yH, high(time5)
+			call INT_KEYPAD
+			lds r16, temporary_string
+			; out PORTC, r16
+			cpi r16, 12
+			brsh stn5Time_Big
+			st Y, r16
+			jmp stnTimeLoop
+			stn5Time_Big:
+			call print_TooLARGE
+			jmp stn5Time
+		
+		next_time_bunch2:
 
-	pop Zh
-	pop Zl
-	pop r17
-	pop r16
+		cpi r16, 6
+		breq stn6Time
+		cpi r16, 7
+		breq stn7Time
+		cpi r16, 8
+		breq stn8Time
 
+		jmp next_stn_name_bunch3
+		stn6Time:
+			ldi yL, low(time6)
+			ldi yH, high(time6)
+			call INT_KEYPAD
+			lds r16, temporary_string
+			; out PORTC, r16
+			cpi r16, 12
+			brsh stn6Time_Big
+			st Y, r16
+			jmp stnTimeLoop
+			stn6Time_Big:
+			call print_TooLARGE
+			jmp stn6Time
+			
+		stn7Time:
+			ldi yL, low(time7)
+			ldi yH, high(time7)
+			call INT_KEYPAD
+			lds r16, temporary_string
+			; out PORTC, r16
+			cpi r16, 12
+			brsh stn7Time_Big
+			st Y, r16
+			jmp stnTimeLoop
+			stn7Time_Big:
+			call print_TooLARGE
+			jmp stn7Time
+		stn8Time:
+			ldi yL, low(time8)
+			ldi yH, high(time8)
+			call INT_KEYPAD
+			lds r16, temporary_string
+			; out PORTC, r16
+			cpi r16, 12
+			brsh stn8Time_Big
+			st Y, r16
+			jmp stnTimeLoop
+			stn8Time_Big:
+			call print_TooLARGE
+			jmp stn8Time
+
+		next_stn_name_bunch3:
+		
+		cpi r16, 9
+		breq stn9Time
+		cpi r16, 10
+		breq stn10Time
+
+		
+		stn9Time:
+			ldi yL, low(time9)
+			ldi yH, high(time9)
+			call INT_KEYPAD
+			lds r16, temporary_string
+			; out PORTC, r16
+			cpi r16, 12
+			brsh stn9Time_Big
+			st Y, r16
+			jmp stnTimeLoop
+			stn9Time_Big:
+			call print_TooLARGE
+			call sleep_1ms
+			jmp stn9Time
+		stn10Time:
+			ldi yL, low(time10)
+			ldi yH, high(time10)
+			call INT_KEYPAD
+			lds r16, temporary_string
+			; out PORTC, r16
+			cpi r16, 12
+			brsh stn10Time_Big
+			st Y, r16
+			jmp stnTimeLoop
+			stn10Time_Big:
+			call print_TooLARGE
+			call sleep_1ms
+			jmp stn10Time
+
+	times_full:
 	ret
 
-printGivStnName:
-	;prologue
-	push r16
-	push r17
-	push Zl
-	push Zh
-	ldi Zl,low(Print_Give_Stn_Names<<1)	
-	ldi Zh,high(Print_Give_Stn_Names<<1)
 
-	;body ==== print stuff =====;
-	clr r17
-
-	do_lcd_command LCD_DISP_CLR
-	do_lcd_command LCD_HOME_LINE
-	
-	for_Print_Give_Stn_Names:
-		lpm r16, z+
-		do_lcd_data r16
-		inc r17
-		cpi r17, 12
-		brlo for_Print_Give_Stn_Names
-
-	pop Zh
-	pop Zl
-	pop r17
-	pop r16
-
-	ret
 
 FindStnNames:
 	clr r16
@@ -512,26 +821,25 @@ FindStnNames:
 	inc r15
 	;;get back Max_Stations
 	stnNameLoop:
+		inc r16 
+		cp r16, r15
+		brsh names_full_JMP
 		
 		do_lcd_command LCD_DISP_CLR
-		/*call printEnterStation		*/
-		inc r16 /*
+		call printEnterStation		
 		subi r16, -'0'
 		do_lcd_data r16
 		subi r16, '0'
-		do_lcd_command LCD_SEC_LINE*/
+		do_lcd_command LCD_SEC_LINE
 		
-		cp r16, r15
-		brsh names_full_JMP
 		jmp over_names_full
 		names_full_JMP:
 			jmp names_full
 		over_names_full:
-		;push r16
-		;ldi r16, 10
 		out PORTC, r16
 		rcall sleep_100ms
-		;pop r16
+		clr stringLength
+
 		cpi r16, 1
 		breq stn1_Name
 		cpi r16, 2
@@ -542,6 +850,54 @@ FindStnNames:
 		breq stn4_Name
 		cpi r16, 5
 		breq stn5_Name
+
+		jmp next_stn_name_bunch
+		stn1_Name:
+			ldi yL, low(Station1)
+			ldi yH, high(Station1)
+			call STRING_KEYPAD_CALL
+			ldi yL, low(Station1)
+			ldi yH, high(Station1)
+			st y, stringLength
+			jmp stnNameLoop
+
+		stn2_Name:
+			ldi yL, low(Station2)
+			ldi yH, high(Station2)
+			call STRING_KEYPAD_CALL
+			ldi yL, low(Station2)
+			ldi yH, high(Station2)
+			st y, stringLength
+			jmp stnNameLoop
+
+		stn3_Name:
+			ldi yL, low(Station3)
+			ldi yH, high(Station3)
+			call STRING_KEYPAD_CALL
+			ldi yL, low(Station3)
+			ldi yH, high(Station3)
+			st y, stringLength
+			jmp stnNameLoop
+
+		stn4_Name:
+			ldi yL, low(Station4)
+			ldi yH, high(Station4)
+			call STRING_KEYPAD_CALL
+			ldi yL, low(Station4)
+			ldi yH, high(Station4)
+			st y, stringLength
+			jmp stnNameLoop
+
+		stn5_Name:
+			ldi yL, low(Station5)
+			ldi yH, high(Station5)
+			call STRING_KEYPAD_CALL
+			ldi yL, low(Station5)
+			ldi yH, high(Station5)
+			st y, stringLength
+			jmp stnNameLoop
+
+		next_stn_name_bunch:
 		cpi r16, 6
 		breq stn6_Name
 		cpi r16, 7
@@ -553,65 +909,49 @@ FindStnNames:
 		cpi r16, 10
 		breq stn10_Name
 		;;
-		
-		stn1_Name:
-			ldi yL, low(Station1)
-			ldi yH, high(Station1)
-			call STRING_KEYPAD_CALL
-			jmp stnNameLoop
-
-		stn2_Name:
-			ldi yL, low(Station2)
-			ldi yH, high(Station2)
-			call STRING_KEYPAD_CALL
-			jmp stnNameLoop
-
-		stn3_Name:
-			ldi yL, low(Station3)
-			ldi yH, high(Station3)
-			call STRING_KEYPAD_CALL
-			jmp stnNameLoop
-
-		stn4_Name:
-			ldi yL, low(Station4)
-			ldi yH, high(Station4)
-			call STRING_KEYPAD_CALL
-			jmp stnNameLoop
-
-		stn5_Name:
-			ldi yL, low(Station5)
-			ldi yH, high(Station5)
-			call STRING_KEYPAD_CALL
-			jmp stnNameLoop
-
 		stn6_Name:
 			ldi yL, low(Station6)
 			ldi yH, high(Station6)
 			call STRING_KEYPAD_CALL
+			ldi yL, low(Station6)
+			ldi yH, high(Station6)
+			st y, stringLength
 			jmp stnNameLoop
 
 		stn7_Name:
 			ldi yL, low(Station7)
 			ldi yH, high(Station7)
 			call STRING_KEYPAD_CALL
+			ldi yL, low(Station7)
+			ldi yH, high(Station7)
+			st y, stringLength
 			jmp stnNameLoop
 
 		stn8_Name:
 			ldi yL, low(Station8)
 			ldi yH, high(Station8)
 			call STRING_KEYPAD_CALL
+			ldi yL, low(Station8)
+			ldi yH, high(Station8)
+			st y, stringLength
 			jmp stnNameLoop
 
 		stn9_Name:
 			ldi yL, low(Station9)
 			ldi yH, high(Station9)
 			call STRING_KEYPAD_CALL
+			ldi yL, low(Station9)
+			ldi yH, high(Station9)
+			st y, stringLength
 			jmp stnNameLoop
 
 		stn10_Name:
 			ldi yL, low(Station10)
 			ldi yH, high(Station10)
 			call STRING_KEYPAD_CALL
+			ldi yL, low(Station10)
+			ldi yH, high(Station10)
+			st y, stringLength
 			jmp stnNameLoop
 		
 		names_full:
@@ -620,6 +960,7 @@ FindStnNames:
 
 ;=================================KEYPAD FOR STN NAMES====================
 STRING_KEYPAD_CALL:
+	adiw yH:yL,1 ;; so that first position is not used, as at end we change first position to be length of string(really just used as incremet)
 	push r16
 	clr stringLength
 	ldi InputCountFlag, 0
@@ -716,7 +1057,7 @@ STRING_KEYPAD_CALL:
 		; SAVE THE STRING
 		jmp endString
 
-	zero:
+	zero_string:
 		ldi temp, '0' ; set to zero
 
 	convert_end_string:
@@ -947,10 +1288,11 @@ STRING_KEYPAD_CALL:
 	
 	
 	endString:
-		clr stringLength
-		ldi r22, '='
-		rcall lcd_data
-		rcall lcd_wait
+
+		
+		;ldi r22, '='
+		;rcall lcd_data
+		;rcall lcd_wait
 		pop r16
 		ret
 	; called when '*' is pressed
@@ -1173,7 +1515,7 @@ LCD:
 		pop r21
 		ret
 
-sleepstuff:
+sleepstuff:	
 	sleep_1ms:
 		push r24
 		push r25
@@ -1208,6 +1550,14 @@ sleepstuff:
 		rcall sleep_25ms
 		rcall sleep_25ms
 		rcall sleep_25ms
+		ret
+	
+	sleep_500ms:
+		rcall sleep_100ms
+		rcall sleep_100ms
+		rcall sleep_100ms
+		rcall sleep_100ms
+		rcall sleep_100ms
 		ret
 
 	sleep_1s:
