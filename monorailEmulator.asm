@@ -325,6 +325,13 @@ Initialisation:
 
 	;call STRING_KEYPAD_CALL
 	;ldi r22, ']'
+	jmp start_emulator
+	
+
+loopforever:
+	jmp loopforever
+
+start_emulator:
 	do_lcd_command LCD_HOME_LINE
 	do_lcd_char 'E'
 	do_lcd_char 'M'
@@ -334,18 +341,17 @@ Initialisation:
 	do_lcd_char 'T'
 	do_lcd_char 'E'
 
-	emulator:
+	jmp emulator
+
+
+emulator:
 		ldi r16, 20
 		out PORTC, r16
 		rcall sleep_1s
 		ldi r16, 10
 		out PORTC, r16
 		rcall sleep_1s
-		jmp emulator
-
-	loopforever:
-	jmp loopforever
-
+		jmp emulator	
 ;Runs the monorail Loop
 ;MonorailLoop:
     
