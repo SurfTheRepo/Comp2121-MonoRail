@@ -119,27 +119,35 @@
 	
 
 	.macro do_lcd_command
+		push r21
 		ldi r21, @0
 		rcall lcd_command
 		rcall lcd_wait
+		pop r21
 	.endmacro
 
 	.macro funky_do_lcd_command
+		push r21
 		mov r21, @0
 		rcall lcd_command
 		rcall lcd_wait
+		pop r21
 	.endmacro
 
 	.macro do_lcd_data
+		push r22
 		mov r22, @0
 		rcall lcd_data
 		rcall lcd_wait
+		pop r22
 	.endmacro
 
 	.macro do_lcd_char
+		push r22
 		ldi r22, @0
 		rcall lcd_data
 		rcall lcd_wait
+		pop r22
 	.endmacro
 
 	.macro lcd_set
@@ -231,6 +239,7 @@
 	Print_Not_Int: .db "Input 1-9"	;9
 	Print_Success: .db "SUCCESS!"
 
+	Print_Enter_Name: .db "Give Stn Nm "
 DEFAULT:
 	reti							; used for interrupts that are not handled
 
@@ -310,13 +319,9 @@ Initialisation:
 	out PORTC, r16
 	cpi r16, 12	
 	brsh number_stations
-	sts Max_Stations, r16
-
-	finished_int_keypad:
 
 
 	call FindStnNames
-
 	;call STRING_KEYPAD_CALL
 
 	; call timing_keypad
@@ -390,6 +395,35 @@ printMaxStations:
 
 	ret
 
+printEnterStation:
+	;prologue
+	push r16
+	push r17
+	push Zl
+	push Zh
+	ldi Zl,low(Print_Enter_Name<<1)	
+	ldi Zh,high(Print_Enter_Name<<1)
+
+	;body ==== print stuff =====;
+	clr r17
+
+	do_lcd_command LCD_DISP_CLR
+	do_lcd_command LCD_HOME_LINE
+	
+	for_Print_Enter_Station:
+		lpm r16, z+
+		do_lcd_data r16
+		inc r17
+		cpi r17, 12
+		brlo for_Print_Enter_Station
+
+	pop Zh
+	pop Zl
+	pop r17
+	pop r16
+
+	ret
+
 printSuccess:
 	;prologue
 	push r16
@@ -455,7 +489,12 @@ FindStnNames:
 	;;get back Max_Stations
 	stnNameLoop:
 		do_lcd_command LCD_DISP_CLR
+		rcall printEnterStation		
 		inc r16 
+		subi r16, -'0'
+		do_lcd_data r16
+		subi r16, '0'
+		do_lcd_command LCD_SEC_LINE
 		cp r16, r15
 		brsh names_full_JMP
 		jmp over_names_full
@@ -490,55 +529,64 @@ FindStnNames:
 		;;
 		
 		stn1_Name:
-		ldi yL, low(Station1)
-		ldi yH, high(Station1)
-		call STRING_KEYPAD_CALL
-		jmp stnNameLoop
+			ldi yL, low(Station1)
+			ldi yH, high(Station1)
+			call STRING_KEYPAD_CALL
+			jmp stnNameLoop
+
 		stn2_Name:
-		ldi yL, low(Station2)
-		ldi yH, high(Station2)
-		call STRING_KEYPAD_CALL
-		jmp stnNameLoop
+			ldi yL, low(Station2)
+			ldi yH, high(Station2)
+			call STRING_KEYPAD_CALL
+			jmp stnNameLoop
+
 		stn3_Name:
-		ldi yL, low(Station3)
-		ldi yH, high(Station3)
-		call STRING_KEYPAD_CALL
-		jmp stnNameLoop
+			ldi yL, low(Station3)
+			ldi yH, high(Station3)
+			call STRING_KEYPAD_CALL
+			jmp stnNameLoop
+
 		stn4_Name:
-		ldi yL, low(Station4)
-		ldi yH, high(Station4)
-		call STRING_KEYPAD_CALL
-		jmp stnNameLoop
+			ldi yL, low(Station4)
+			ldi yH, high(Station4)
+			call STRING_KEYPAD_CALL
+			jmp stnNameLoop
+
 		stn5_Name:
-		ldi yL, low(Station5)
-		ldi yH, high(Station5)
-		call STRING_KEYPAD_CALL
-		jmp stnNameLoop
+			ldi yL, low(Station5)
+			ldi yH, high(Station5)
+			call STRING_KEYPAD_CALL
+			jmp stnNameLoop
+
 		stn6_Name:
-		ldi yL, low(Station6)
-		ldi yH, high(Station6)
-		call STRING_KEYPAD_CALL
-		jmp stnNameLoop
+			ldi yL, low(Station6)
+			ldi yH, high(Station6)
+			call STRING_KEYPAD_CALL
+			jmp stnNameLoop
+
 		stn7_Name:
-		ldi yL, low(Station7)
-		ldi yH, high(Station7)
-		call STRING_KEYPAD_CALL
-		jmp stnNameLoop
+			ldi yL, low(Station7)
+			ldi yH, high(Station7)
+			call STRING_KEYPAD_CALL
+			jmp stnNameLoop
+
 		stn8_Name:
-		ldi yL, low(Station8)
-		ldi yH, high(Station8)
-		call STRING_KEYPAD_CALL
-		jmp stnNameLoop
+			ldi yL, low(Station8)
+			ldi yH, high(Station8)
+			call STRING_KEYPAD_CALL
+			jmp stnNameLoop
+
 		stn9_Name:
-		ldi yL, low(Station9)
-		ldi yH, high(Station9)
-		call STRING_KEYPAD_CALL
-		jmp stnNameLoop
+			ldi yL, low(Station9)
+			ldi yH, high(Station9)
+			call STRING_KEYPAD_CALL
+			jmp stnNameLoop
+
 		stn10_Name:
-		ldi yL, low(Station10)
-		ldi yH, high(Station10)
-		call STRING_KEYPAD_CALL
-		jmp stnNameLoop
+			ldi yL, low(Station10)
+			ldi yH, high(Station10)
+			call STRING_KEYPAD_CALL
+			jmp stnNameLoop
 		
 		names_full:
 		
