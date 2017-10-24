@@ -150,13 +150,8 @@
 
 ;==========================END MACROS=======================
 
-;================defining registers=======================;
-;But try to use just the register number for most of the time
-.def temp = r16
-.def temp2 = r17
-.def mask = r18
-.def col = r19
-.def row = r20
+
+
 
 .dseg
 
