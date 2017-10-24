@@ -32,7 +32,7 @@
 
 .def InputCountFlag = r24
 .def firstChar = r21
-.def stringLength = r22
+.def stringLength = r23
 
 ;===============MACROS======================
 .macro conflictPush
@@ -386,29 +386,37 @@ printGivStnName:
 	ret
 
 FindStnNames:
-	clr r14
+	clr r16
+	lds r15, Max_Stations 
+	inc r15
 	;;get back Max_Stations
 	stnNameLoop:
-		inc r14
-		cpi r14 1
+		inc r16 
+		cp r16, r15
+		brsh names_full_JMP
+		jmp over_names_full
+		names_full_JMP:
+			jmp names_full
+		over_names_full:
+		cpi r16, 1
 		breq stn1_Name
-		cpi r14, 2
+		cpi r16, 2
 		breq stn2_Name
-		cpi r14 3
+		cpi r16, 3
 		breq stn3_Name
-		cpi r14, 4
+		cpi r16, 4
 		breq stn4_Name
-		cpi r14 5
+		cpi r16, 5
 		breq stn5_Name
-		cpi r14, 6
+		cpi r16, 6
 		breq stn6_Name
-		cpi r14 7
+		cpi r16, 7
 		breq stn7_Name
-		cpi r14, 8
+		cpi r16, 8
 		breq stn8_Name
-		cpi r14, 9
+		cpi r16, 9
 		breq stn9_Name
-		cpi r14, 10
+		cpi r16, 10
 		breq stn10_Name
 		;;
 		stn1_Name:
@@ -417,7 +425,7 @@ FindStnNames:
 		call STRING_KEYPAD_CALL
 		jmp stnNameLoop
 		stn2_Name:
-		ldi yL, low(Station2
+		ldi yL, low(Station2)
 		ldi yH, high(Station2)
 		call STRING_KEYPAD_CALL
 		jmp stnNameLoop
@@ -456,12 +464,19 @@ FindStnNames:
 		ldi yH, high(Station9)
 		call STRING_KEYPAD_CALL
 		jmp stnNameLoop
+		stn10_Name:
+		ldi yL, low(Station10)
+		ldi yH, high(Station10)
+		call STRING_KEYPAD_CALL
+		jmp stnNameLoop
 		
+		names_full:
 	ret
 
 ;=================================KEYPAD FOR STN NAMES====================
 STRING_KEYPAD_CALL:
-	push r14
+	push r16
+	clr stringLength
 	STRING_KEYPAD:
 	ldi mask, INITCOLMASK ; initial column mask
 	clr col ; initial column
@@ -556,6 +571,12 @@ STRING_KEYPAD_CALL:
 		ldi temp, '0' ; set to zero
 
 	convert_end_string:
+		cpi stringLength, 10
+		brsh endString_JMP
+		jmp overEndstring_jmp
+		endString_JMP:
+			jmp endString
+		overEndstring_jmp:
 		rcall sleep_100ms
 		rcall sleep_100ms
 		mov r22, temp
@@ -769,6 +790,7 @@ STRING_KEYPAD_CALL:
 			
 
 		printVal_string:
+			inc stringLength
 			rcall lcd_data
 			rcall lcd_wait
 			st Y+, r22
@@ -779,7 +801,7 @@ STRING_KEYPAD_CALL:
 		ldi r22, '='
 		rcall lcd_data
 		rcall lcd_wait
-		pop r14
+		pop r16
 		ret
 	; called when '*' is pressed
 	;trigger to set end of string, and ask for new input or run emulator
@@ -1011,8 +1033,7 @@ lcd_wait:
 	pop r21
 	ret
 
-//sleepstuff
-	//Delay functions taken from previous lab
+;sleepstuff
 	sleep_1ms:
 		push r24
 		push r25
