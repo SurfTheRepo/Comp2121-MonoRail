@@ -324,8 +324,25 @@ Initialisation:
 	call FindStnNames
 
 	;call STRING_KEYPAD_CALL
-	ldi r22, ']'
-	rcall lcd_data
+	;ldi r22, ']'
+	do_lcd_command LCD_HOME_LINE
+	do_lcd_char 'E'
+	do_lcd_char 'M'
+	do_lcd_char 'U'
+	do_lcd_char 'L'
+	do_lcd_char 'A'
+	do_lcd_char 'T'
+	do_lcd_char 'E'
+
+	emulator:
+		ldi r16, 20
+		out PORTC, r16
+		rcall sleep_1s
+		ldi r16, 10
+		out PORTC, r16
+		rcall sleep_1s
+		jmp emulator
+
 	loopforever:
 	jmp loopforever
 
@@ -522,6 +539,7 @@ FindStnNames:
 		jmp stnNameLoop
 		
 		names_full:
+		
 	ret
 
 ;=================================KEYPAD FOR STN NAMES====================
@@ -1117,14 +1135,15 @@ sleepstuff:
 		ret
 
 	sleep_1s:
-		rcall sleep100ms
-		rcall sleep100ms
-		rcall sleep100ms
-		rcall sleep100ms
-		rcall sleep100ms
-		rcall sleep100ms
-		rcall sleep100ms
-		rcall sleep100ms
-		rcall sleep100ms
-		rcall sleep100ms
+		rcall sleep_100ms
+		rcall sleep_100ms
+		rcall sleep_100ms
+		rcall sleep_100ms
+		rcall sleep_100ms
+		rcall sleep_100ms
+		rcall sleep_100ms
+		rcall sleep_100ms
+		rcall sleep_100ms
+		rcall sleep_100ms
+		rcall sleep_100ms
 		ret
