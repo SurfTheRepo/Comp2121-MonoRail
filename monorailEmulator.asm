@@ -32,7 +32,7 @@
 
 .def InputCountFlag = r24
 .def firstChar = r21
-.def stringLength = r22
+.def stringLength = r23
 
 ;===============MACROS======================
 .macro conflictPush
@@ -299,14 +299,17 @@ Initialisation:
 	finished_int_keypad:
 
 	rcall printGivStnName
-	
+	rcall sleep_100ms
+	rcall sleep_100ms
+	rcall sleep_100ms
 	do_lcd_command LCD_DISP_CLR
 	do_lcd_command LCD_HOME_LINE
 	cpi r16, 11
 	sts Max_Stations, r16
 
-	
-	jmp STRING_KEYPAD
+	call FindStnNames
+
+	;call STRING_KEYPAD_CALL
 
 	loopforever:
 	jmp loopforever
@@ -353,8 +356,6 @@ printMaxStations:
 
 	ret
 
-
-
 printGivStnName:
 	;prologue
 	push r16
@@ -384,10 +385,99 @@ printGivStnName:
 
 	ret
 
+FindStnNames:
+	clr r16
+	lds r15, Max_Stations 
+	inc r15
+	;;get back Max_Stations
+	stnNameLoop:
+		inc r16 
+		cp r16, r15
+		brsh names_full_JMP
+		jmp over_names_full
+		names_full_JMP:
+			jmp names_full
+		over_names_full:
+		cpi r16, 1
+		breq stn1_Name
+		cpi r16, 2
+		breq stn2_Name
+		cpi r16, 3
+		breq stn3_Name
+		cpi r16, 4
+		breq stn4_Name
+		cpi r16, 5
+		breq stn5_Name
+		cpi r16, 6
+		breq stn6_Name
+		cpi r16, 7
+		breq stn7_Name
+		cpi r16, 8
+		breq stn8_Name
+		cpi r16, 9
+		breq stn9_Name
+		cpi r16, 10
+		breq stn10_Name
+		;;
+		stn1_Name:
+		ldi yL, low(Station1)
+		ldi yH, high(Station1)
+		call STRING_KEYPAD_CALL
+		jmp stnNameLoop
+		stn2_Name:
+		ldi yL, low(Station2)
+		ldi yH, high(Station2)
+		call STRING_KEYPAD_CALL
+		jmp stnNameLoop
+		stn3_Name:
+		ldi yL, low(Station3)
+		ldi yH, high(Station3)
+		call STRING_KEYPAD_CALL
+		jmp stnNameLoop
+		stn4_Name:
+		ldi yL, low(Station4)
+		ldi yH, high(Station4)
+		call STRING_KEYPAD_CALL
+		jmp stnNameLoop
+		stn5_Name:
+		ldi yL, low(Station5)
+		ldi yH, high(Station5)
+		call STRING_KEYPAD_CALL
+		jmp stnNameLoop
+		stn6_Name:
+		ldi yL, low(Station6)
+		ldi yH, high(Station6)
+		call STRING_KEYPAD_CALL
+		jmp stnNameLoop
+		stn7_Name:
+		ldi yL, low(Station7)
+		ldi yH, high(Station7)
+		call STRING_KEYPAD_CALL
+		jmp stnNameLoop
+		stn8_Name:
+		ldi yL, low(Station8)
+		ldi yH, high(Station8)
+		call STRING_KEYPAD_CALL
+		jmp stnNameLoop
+		stn9_Name:
+		ldi yL, low(Station9)
+		ldi yH, high(Station9)
+		call STRING_KEYPAD_CALL
+		jmp stnNameLoop
+		stn10_Name:
+		ldi yL, low(Station10)
+		ldi yH, high(Station10)
+		call STRING_KEYPAD_CALL
+		jmp stnNameLoop
+		
+		names_full:
+	ret
 
 ;=================================KEYPAD FOR STN NAMES====================
-STRING_KEYPAD:
-	conflictPush
+STRING_KEYPAD_CALL:
+	push r16
+	clr stringLength
+	STRING_KEYPAD:
 	ldi mask, INITCOLMASK ; initial column mask
 	clr col ; initial column
 
@@ -460,12 +550,6 @@ STRING_KEYPAD:
 		add temp, col ; add the column address
 		jmp convert_end_string
 
-
-	; to get the offset from 1
-	; add 1. Value of switch is
-	; row*3 + col + 1.
-		jmp convert_end_string
-
 	letters_string:
 		ldi temp, 'A'
 		add temp, row ; increment from 0xA by the row value
@@ -487,6 +571,12 @@ STRING_KEYPAD:
 		ldi temp, '0' ; set to zero
 
 	convert_end_string:
+		cpi stringLength, 10
+		brsh endString_JMP
+		jmp overEndstring_jmp
+		endString_JMP:
+			jmp endString
+		overEndstring_jmp:
 		rcall sleep_100ms
 		rcall sleep_100ms
 		mov r22, temp
@@ -522,7 +612,6 @@ STRING_KEYPAD:
 			printC:
 				ldi r22, 'C'
 				jmp printVal_string
-
 		Threes:
 			cpi firstChar, 1
 			breq printD
@@ -540,7 +629,6 @@ STRING_KEYPAD:
 			printF:
 				ldi r22, 'F'
 				jmp printVal_string
-
 		Fours:
 			cpi firstChar, 1
 			breq printG
@@ -558,35 +646,42 @@ STRING_KEYPAD:
 			printI:
 				ldi r22, 'I'
 				jmp printVal_string
-
-	
 			endConvert_string:
 			rcall sleep_25ms
 			rcall sleep_25ms
 			rcall sleep_25ms
 			rcall sleep_100ms
 			jmp STRING_KEYPAD
-			;ret ; return to caller
-
 		convertTwoOne:
 		
 			ldi InputCountFlag, 0
 			
 			cpi r22, 1
-			breq Ones
-
+			breq OnesJMP
+		
 			cpi r22, 2
-			breq Twos
+			breq TwosJMP
 
 			cpi r22, 3
-			breq Threes
+			breq ThreesJMP
 
 			cpi r22, 4
-			breq Fours
+			breq FoursJMP
 
 			cpi r22, 5
-			breq Fives
+			breq FivesJMP
 			jmp nextChunk
+
+			OnesJMP:
+				jmp Ones
+			TwosJMP:
+				jmp Twos
+			ThreesJMP:
+				jmp Threes
+			FoursJMP:
+				jmp Fours
+			FivesJMP:
+				jmp Fives
 
 			Nines:
 				cpi firstChar, 1
@@ -619,8 +714,6 @@ STRING_KEYPAD:
 			cpi r22, 9
 			breq Nines
 			
-		
-
 			Fives:
 				cpi firstChar, 1
 				breq printJ
@@ -697,19 +790,19 @@ STRING_KEYPAD:
 			
 
 		printVal_string:
+			inc stringLength
 			rcall lcd_data
 			rcall lcd_wait
+			st Y+, r22
 			rjmp endConvert_string
+	
 	
 	endString:
 		ldi r22, '='
 		rcall lcd_data
 		rcall lcd_wait
-		conflictPop
+		pop r16
 		ret
-		;jmp loopforever
-
-	
 	; called when '*' is pressed
 	;trigger to set end of string, and ask for new input or run emulator
 
@@ -940,8 +1033,7 @@ lcd_wait:
 	pop r21
 	ret
 
-//sleepstuff
-	//Delay functions taken from previous lab
+;sleepstuff
 	sleep_1ms:
 		push r24
 		push r25
