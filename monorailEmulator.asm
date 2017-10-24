@@ -229,11 +229,8 @@
 	Print_Enter_Stations: .db "Enter the numberof stations: " ;16-12
 	Print_Give_Stn_Names: .db "Giv Stn Name: "
 	Print_Not_Int: .db "Input 1-9"	;9
-
-Print_Enter_Stations: .db "Enter the numberof stations: " ;16-12
-Print_Give_Stn_Names: .db "Giv Stn Name: "
-Print_Not_Int: .db "Input 1-9"	;9
-Print_Success: .db "SUCCESS!"
+	Print_Success: .db "SUCCESS!"
+	
 DEFAULT:
 	reti							; used for interrupts that are not handled
 
