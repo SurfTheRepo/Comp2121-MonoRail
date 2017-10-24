@@ -230,7 +230,7 @@
 	Print_Give_Stn_Names: .db "Giv Stn Name: "
 	Print_Not_Int: .db "Input 1-9"	;9
 	Print_Success: .db "SUCCESS!"
-	
+
 DEFAULT:
 	reti							; used for interrupts that are not handled
 
@@ -324,7 +324,8 @@ Initialisation:
 	call FindStnNames
 
 	;call STRING_KEYPAD_CALL
-
+	ldi r22, ']'
+	rcall lcd_data
 	loopforever:
 	jmp loopforever
 
@@ -434,6 +435,7 @@ FindStnNames:
 	inc r15
 	;;get back Max_Stations
 	stnNameLoop:
+		do_lcd_command LCD_DISP_CLR
 		inc r16 
 		cp r16, r15
 		brsh names_full_JMP
@@ -441,6 +443,11 @@ FindStnNames:
 		names_full_JMP:
 			jmp names_full
 		over_names_full:
+		;push r16
+		;ldi r16, 10
+		out PORTC, r16
+		rcall sleep_100ms
+		;pop r16
 		cpi r16, 1
 		breq stn1_Name
 		cpi r16, 2
@@ -462,6 +469,7 @@ FindStnNames:
 		cpi r16, 10
 		breq stn10_Name
 		;;
+		
 		stn1_Name:
 		ldi yL, low(Station1)
 		ldi yH, high(Station1)
@@ -520,6 +528,7 @@ FindStnNames:
 STRING_KEYPAD_CALL:
 	push r16
 	clr stringLength
+	ldi InputCountFlag, 0
 	STRING_KEYPAD:
 	ldi mask, INITCOLMASK ; initial column mask
 	clr col ; initial column
@@ -607,6 +616,9 @@ STRING_KEYPAD_CALL:
 		breq star_string
 
 	star_string:	
+		rcall sleep_100ms
+		rcall sleep_100ms
+
 		; SAVE THE STRING
 		jmp endString
 
@@ -841,6 +853,7 @@ STRING_KEYPAD_CALL:
 	
 	
 	endString:
+		clr stringLength
 		ldi r22, '='
 		rcall lcd_data
 		rcall lcd_wait
