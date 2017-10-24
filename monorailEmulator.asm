@@ -291,19 +291,27 @@ RESET:
 
 ;======================Deals with initialising all the station names and station times==========================
 Initialisation:
+	in YL, SPL
+	in YH, SPH
+	sbiw Y, 4
+	out SPL, YL
+	out SPH, YH
+
 	number_stations:
-    rcall printMaxStations
-	;r16 is going to hold the value of the max stations
-	
+    call printMaxStations	
 	call INT_KEYPAD
+	lds r16, temporary_string
+	out PORTC, r16
+	cpi r16, 12	
+	brsh number_stations
+	sts Max_Stations, r16
+
 	finished_int_keypad:
 
 	rcall printGivStnName
 	
-	do_lcd_command LCD_DISP_CLR
-	do_lcd_command LCD_HOME_LINE
-	cpi r16, 11
-	sts Max_Stations, r16
+	
+
 
 	
 	jmp STRING_KEYPAD
@@ -840,8 +848,7 @@ INT_KEYPAD:
 		ldi yh, high(temporary_string)
 
 		Int_parse_loop:
-			ld r17, y+
-			
+			ld r17, y+	
 			subi r17, '0'
 			
 			cpi r21, 2
@@ -850,16 +857,11 @@ INT_KEYPAD:
 			mul r17, r18
 			ld r17, y+
 			subi r17, '0'
-			add r0, r17
+			add r17, r0
 
 		int_parse_end:
-			mov r17, r16
-			
-			;do_lcd_char 'F'
-			rcall sleep_100ms
-			rcall sleep_100ms
-			rcall sleep_100ms
-			mov r17, r16
+			sts temporary_string, r17
+
 			pop r18
 			pop r17
 			pop temp
@@ -867,10 +869,6 @@ INT_KEYPAD:
 	
 	pop yh
 	pop yl
-		
-	
-
-	
 
 	ret 
 
