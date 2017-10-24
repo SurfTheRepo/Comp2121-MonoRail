@@ -322,10 +322,9 @@ Initialisation:
 
 
 	call FindStnNames
-	;call STRING_KEYPAD_CALL
+	call sleep_1s
 
-	; call timing_keypad
-	;ldi r22, ']'
+
 	jmp start_emulator
 	
 
@@ -333,6 +332,31 @@ loopforever:
 	jmp loopforever
 
 start_emulator:
+	do_lcd_command LCD_HOME_LINE
+	do_lcd_char 'P'
+	do_lcd_char 'L'
+	do_lcd_char 'E'
+	do_lcd_char 'A'
+	do_lcd_char 'S'
+	do_lcd_char 'E'
+	do_lcd_char ' '
+	do_lcd_char 'W'
+	do_lcd_char 'A'
+	do_lcd_char 'I'
+	do_lcd_char 'T'
+	do_lcd_char ' '
+	do_lcd_char '5'
+	do_lcd_char ' '
+	do_lcd_char 'S'
+	do_lcd_char 'E'
+	do_lcd_char 'C'
+	do_lcd_char 'S'
+	rcall sleep_1s
+	rcall sleep_1s
+	rcall sleep_1s
+	rcall sleep_1s
+	rcall sleep_1s
+
 	do_lcd_command LCD_HOME_LINE
 	do_lcd_char 'E'
 	do_lcd_char 'M'
@@ -488,13 +512,15 @@ FindStnNames:
 	inc r15
 	;;get back Max_Stations
 	stnNameLoop:
+		
 		do_lcd_command LCD_DISP_CLR
-		rcall printEnterStation		
-		inc r16 
+		/*call printEnterStation		*/
+		inc r16 /*
 		subi r16, -'0'
 		do_lcd_data r16
 		subi r16, '0'
-		do_lcd_command LCD_SEC_LINE
+		do_lcd_command LCD_SEC_LINE*/
+		
 		cp r16, r15
 		brsh names_full_JMP
 		jmp over_names_full
