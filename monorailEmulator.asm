@@ -1115,3 +1115,16 @@ sleepstuff:
 		rcall sleep_25ms
 		rcall sleep_25ms
 		ret
+
+	sleep_1s:
+		rcall sleep100ms
+		rcall sleep100ms
+		rcall sleep100ms
+		rcall sleep100ms
+		rcall sleep100ms
+		rcall sleep100ms
+		rcall sleep100ms
+		rcall sleep100ms
+		rcall sleep100ms
+		rcall sleep100ms
+		ret
