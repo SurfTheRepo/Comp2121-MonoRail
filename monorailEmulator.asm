@@ -320,8 +320,6 @@ Initialisation:
 	sts Max_Stations, r16
 	
 	call FindStnNames
-	do_lcd_command LCD_DISP_CLR
-	do_lcd_command LCD_HOME_LINE
 	;call STRING_KEYPAD_CALL
 	ldi r22, ']'
 	rcall lcd_data
@@ -1162,6 +1160,7 @@ sleepstuff:
 		ret
 
 	sleep_1s:
+		rcall sleep_100ms
 		rcall sleep_100ms
 		rcall sleep_100ms
 		rcall sleep_100ms
