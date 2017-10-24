@@ -1170,5 +1170,8 @@ sleepstuff:
 		rcall sleep_100ms
 		rcall sleep_100ms
 		rcall sleep_100ms
+<<<<<<< HEAD
+=======
 		rcall sleep_100ms
+>>>>>>> master
 		ret
