@@ -236,7 +236,14 @@ RESET:
 	ldi r16, high(RAMEND)
 	out SPH, r16
 
+	;=======LED STUFF======;
+	ser temp
+	out DDRC, temp
+	
+	out PORTC, temp
 
+
+	;==========keyPadInit======;
 	ldi temp, PORTLDIR ; columns are outputs, rows are inputs
 	STS DDRL, temp     ; cannot use out
 	
@@ -282,32 +289,17 @@ RESET:
 	rcall sleep_100ms
 	jmp Initialisation
 
-;Deals with initialising all the station names and station times
+;======================Deals with initialising all the station names and station times==========================
 Initialisation:
 	number_stations:
     rcall printMaxStations
 	;r16 is going to hold the value of the max stations
 	
-	jmp INT_KEYPAD
+	call INT_KEYPAD
 	finished_int_keypad:
 
 	rcall printGivStnName
-	rcall sleep_100ms
-	rcall sleep_100ms
-	rcall sleep_100ms
-	rcall sleep_100ms
-	rcall sleep_100ms
-	rcall sleep_100ms
-	rcall sleep_100ms
-	rcall sleep_100ms
-	rcall sleep_100ms
-	rcall sleep_100ms
-	rcall sleep_100ms
-	rcall sleep_100ms
-	rcall sleep_100ms
-	rcall sleep_100ms
-	rcall sleep_100ms
-	rcall sleep_100ms
+	
 	do_lcd_command LCD_DISP_CLR
 	do_lcd_command LCD_HOME_LINE
 	cpi r16, 11
@@ -417,8 +409,8 @@ STRING_KEYPAD:
 		mov temp2, temp
 		and temp2, mask ; check masked bit
 		brne skipconv_string ; if the result is non-zero, we need to look again
-		rcall convert_string ; if bit is clear, convert the bitcode
-		jmp STRING_KEYPAD ; and start again
+		jmp convert_string ; if bit is clear, convert the bitcode
+		;jmp STRING_KEYPAD ; and start again
 
 	skipconv_string:
 		inc row ; else move to the next row
@@ -861,17 +853,13 @@ INT_KEYPAD:
 			add r0, r17
 
 		int_parse_end:
-<<<<<<< HEAD
-			;1	q	5t6ydo_lcd_char 'F'
 			mov r17, r16
 			
-=======
 			;do_lcd_char 'F'
 			rcall sleep_100ms
 			rcall sleep_100ms
 			rcall sleep_100ms
 			mov r17, r16
->>>>>>> 6a95bbe7da71ee16e3465483a029852ad50e5424
 			pop r18
 			pop r17
 			pop temp
@@ -881,17 +869,16 @@ INT_KEYPAD:
 	pop yl
 		
 	
-<<<<<<< HEAD
+
 	
 
 	ret 
-=======
+
 	;conflictPop
->>>>>>> 6a95bbe7da71ee16e3465483a029852ad50e5424
 
 	
 	;ret 
-	jmp finished_int_keypad
+	;jmp finished_int_keypad
 
 	
 
