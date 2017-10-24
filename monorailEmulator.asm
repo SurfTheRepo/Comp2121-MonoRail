@@ -303,7 +303,9 @@ Initialisation:
 
 	number_stations:
     call printMaxStations	
+	
 	call INT_KEYPAD
+
 	lds r16, temporary_string
 	out PORTC, r16
 	cpi r16, 12	
@@ -312,18 +314,12 @@ Initialisation:
 
 	finished_int_keypad:
 
-	rcall printGivStnName
-	rcall sleep_100ms
-	rcall sleep_100ms
-	rcall sleep_100ms
-	do_lcd_command LCD_DISP_CLR
-	do_lcd_command LCD_HOME_LINE
-	cpi r16, 11
-	sts Max_Stations, r16
 
 	call FindStnNames
 
 	;call STRING_KEYPAD_CALL
+
+	; call timing_keypad
 	;ldi r22, ']'
 	jmp start_emulator
 	
