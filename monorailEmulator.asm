@@ -565,7 +565,8 @@ STRING_KEYPAD:
 			rcall sleep_25ms
 			rcall sleep_25ms
 			rcall sleep_100ms
-			ret ; return to caller
+			jmp STRING_KEYPAD
+			;ret ; return to caller
 
 		convertTwoOne:
 		
@@ -700,12 +701,13 @@ STRING_KEYPAD:
 			rcall lcd_wait
 			rjmp endConvert_string
 	
-`	endString:
+	endString:
 		ldi r22, '='
 		rcall lcd_data
 		rcall lcd_wait
 		conflictPop
-		jmp loopforever
+		ret
+		;jmp loopforever
 
 	
 	; called when '*' is pressed
