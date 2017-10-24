@@ -227,6 +227,7 @@
 Print_Enter_Stations: .db "Enter the numberof stations: " ;16-12
 Print_Give_Stn_Names: .db "Giv Stn Name: "
 Print_Not_Int: .db "Input 1-9"	;9
+Print_Success: .db "SUCCESS!"
 DEFAULT:
 	reti							; used for interrupts that are not handled
 
@@ -358,6 +359,35 @@ printMaxStations:
 		inc r17
 		cpi r17, 12
 		brlo for_printMaxStation2
+
+	pop Zh
+	pop Zl
+	pop r17
+	pop r16
+
+	ret
+
+printSuccess:
+	;prologue
+	push r16
+	push r17
+	push Zl
+	push Zh
+	ldi Zl,low(Print_Success<<1)	
+	ldi Zh,high(Print_Success<<1)
+
+	;body ==== print stuff =====;
+	clr r17
+
+	do_lcd_command LCD_DISP_CLR
+	do_lcd_command LCD_HOME_LINE
+	
+	for_Print_Success:
+		lpm r16, z+
+		do_lcd_data r16
+		inc r17
+		cpi r17, 8
+		brlo for_Print_Success
 
 	pop Zh
 	pop Zl
