@@ -352,6 +352,12 @@ printMaxStations:
 INT_KEYPAD:
 	push yl
 	push yh
+
+	clr temp
+	sts temporary_string, temp
+	sts temporary_string + 1, temp
+	
+
 	ldi yl, low(temporary_string)
 	ldi yh, high(temporary_string)
 	;do_lcd_char '+'
@@ -384,8 +390,8 @@ INT_KEYPAD:
 		mov temp2, temp
 		and temp2, mask ; check masked bit
 		brne int_keypad_skipconv ; if the result is non-zero, we need to look again
-		rcall int_keypad_convert ; if bit is clear, convert the bitcode
-		jmp Int_start ; and start again
+		jmp int_keypad_convert ; if bit is clear, convert the bitcode
+		;jmp Int_start ; and start again
 
 	int_keypad_skipconv:
 		inc row ; else move to the next row
@@ -459,7 +465,7 @@ INT_KEYPAD:
 		brlo Int_start_jmp
 		
 	int_parse:
-		do_lcd_char '*'
+		;do_lcd_char '*'
 		push temp
 		push r17
 		push r18
@@ -469,27 +475,32 @@ INT_KEYPAD:
 
 		Int_parse_loop:
 			ld r17, y+
+			
 			subi r17, '0'
-
+			
 			cpi r21, 2
 			brne int_parse_end
 
 			mul r17, r18
 			ld r17, y+
+			subi r17, '0'
 			add r0, r17
 
 		int_parse_end:
-			do_lcd_char 'F'
+			;1	q	5t6ydo_lcd_char 'F'
 			mov r17, r16
-			pop r17
+			
 			pop r18
+			pop r17
 			pop temp
 			;do_lcd_char 'U'
 	
 	pop yh
 	pop yl
 	
-	jmp finished_int_keypad
+	
+
+	ret 
 
 
 	
