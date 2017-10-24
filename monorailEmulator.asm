@@ -354,6 +354,7 @@ printMaxStations:
 		cpi r17, 16
 		brlo for_printMaxStation1
 	
+	
 	clr r17
 	do_lcd_command LCD_SEC_LINE
 	for_PrintMaxStation2:
