@@ -126,32 +126,32 @@
 	.macro do_lcd_command
 		push r21
 		ldi r21, @0
-		rcall lcd_command
-		rcall lcd_wait
+		call lcd_command
+		call lcd_wait
 		pop r21
 	.endmacro
 
 	.macro funky_do_lcd_command
 		push r21
 		mov r21, @0
-		rcall lcd_command
-		rcall lcd_wait
+		call lcd_command
+		call lcd_wait
 		pop r21
 	.endmacro
 
 	.macro do_lcd_data
 		push r22
 		mov r22, @0
-		rcall lcd_data
-		rcall lcd_wait
+		call lcd_data
+		call lcd_wait
 		pop r22
 	.endmacro
 
 	.macro do_lcd_char
 		push r22
 		ldi r22, @0
-		rcall lcd_data
-		rcall lcd_wait
+		call lcd_data
+		call lcd_wait
 		pop r22
 	.endmacro
 
@@ -283,6 +283,11 @@ RESET:
 	;==========Motor Setup===========;
 		ldi temp, (1<<PE4)		;labeled PE2 actually PE4 
 		out DDRE, temp   		;output
+
+		ldi temp, (1<<WGM30)|(1<<COM3B1) ; set the Timer3 to Phase Correct PWM mode (8-bit) aka Mode1
+		sts TCCR3A, temp
+		ldi temp, (1<<CS31)
+		sts TCCR3B, temp		; Prescaling value=8
 		
 	;==========keyPadInit======;
 		ldi temp, PORTLDIR ; columns are outputs, rows are inputs
@@ -298,9 +303,9 @@ RESET:
 
 	;=======Set LCD stuff========;
 		do_lcd_command LCD_FUNC_SET		;2x5x7
-		rcall sleep_5ms
+		call sleep_5ms
 		do_lcd_command LCD_FUNC_SET		;2x5x7
-		rcall sleep_1ms
+		call sleep_1ms
 		do_lcd_command LCD_FUNC_SET
 		do_lcd_command LCD_FUNC_SET
 		do_lcd_command LCD_DISP_OFF
@@ -321,14 +326,14 @@ RESET:
 		do_lcd_char 'E'
 		do_lcd_char 'T'
 		do_lcd_char '!'
-		rcall sleep_100ms
-		rcall sleep_100ms
-		rcall sleep_100ms
-		rcall sleep_100ms
-		rcall sleep_100ms
-		rcall sleep_100ms
-		rcall sleep_100ms
-		rcall sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
 
 
 	jmp Initialisation
@@ -380,11 +385,11 @@ start_emulator:
 	do_lcd_char 'I'
 	do_lcd_char 'T'
 
-	rcall sleep_1s
-	; rcall sleep_1s
-	; rcall sleep_1s
-	; rcall sleep_1s
-	; rcall sleep_1s
+	call sleep_1s
+	; call sleep_1s
+	; call sleep_1s
+	; call sleep_1s
+	; call sleep_1s
 	do_lcd_command LCD_DISP_CLR
 	do_lcd_command LCD_HOME_LINE
 	do_lcd_char 'E'
@@ -402,7 +407,7 @@ start_emulator:
 	clr secondCount
 	inc secondCount
 	ldi current_station, 1
-
+	call MotorStart
 	jmp emulator
 
 ;MonorailLoop:
@@ -411,27 +416,21 @@ emulator:
 	breq second_occurred_jmp
 	jmp over_second_occured
 	second_occurred_jmp:
-		
-		; ldi r16, 9
-		; out PORTC, r16
-		; call sleep_500ms
-		; ldi r16, 27
-		; out PORTC, r16
 		call second_occured
 
 	over_second_occured:
 
 	inc temp
 	call printStnName
-	call MotorStart
+	
 	; call sleep_100ms
 	push r16
 	ldi r16, 20
 	out PORTC, r16
-	rcall sleep_one_third
+	call sleep_one_third
 	ldi r16, 10
 	out PORTC, r16
-	rcall sleep_one_third
+	call sleep_one_third
 	pop r16
 
 
@@ -439,8 +438,6 @@ emulator:
 
 second_occured:
 	inc secondCount
-	; clr temp
-	; push temp
 	mov temp, current_station
 
 	call getting_time_between_station
@@ -463,17 +460,18 @@ second_occured:
 			inc current_station
 			lds r18, Max_Stations	
 			cp r18, current_station
-			brlo station_loop_around
+			breq station_loop_around
 			jmp end_second_occured
 			station_loop_around:
 				ldi current_station, 1
 
 	end_second_occured:
-	clr temp
-	ret
+		clr temp
+		ret
 
 
 getting_time_between_station:
+
 	cpi r16, 1
 	breq get_time_1
 	cpi r16, 2
@@ -528,6 +526,7 @@ getting_time_between_station:
 		jmp got_current_travel
 
 	got_current_travel:
+		clr temp
 		ret
 
 ;; Stops the train at station for max stop time
@@ -559,11 +558,6 @@ MotorStart:
 		sts OCR3BL, temp		;Determine duty free
 		clr temp
 		sts OCR3BH, temp
-		ldi temp, (1<<WGM30)|(1<<COM3B1) ; set the Timer3 to Phase Correct PWM mode (8-bit) aka Mode1
-		sts TCCR3A, temp
-		ldi temp, (1<<CS31)
-		sts TCCR3B, temp		; Prescaling value=8
-		clr temp
 		pop temp
 		ret
 
@@ -574,18 +568,9 @@ MotorStop:
 		sts OCR3BL, temp		;Determine duty free
 		clr temp
 		sts OCR3BH, temp
-		ldi temp, (1<<WGM30)|(1<<COM3B1) ; set the Timer3 to Phase Correct PWM mode (8-bit) aka Mode1
-		sts TCCR3A, temp
-		ldi temp, (1<<CS31)
-		sts TCCR3B, temp		; Prescaling value=8
-		clr temp
+		
 		pop temp
 		ret
-
-
-
-
-
 
 
 BUTTONINTERRUPT:
@@ -1087,7 +1072,7 @@ FindTimes:
 			jmp times_full
 		over_times_full:
 		out PORTC, r16
-		rcall sleep_100ms
+		call sleep_100ms
 
 		cpi r16, 1
 		breq stn1Time
@@ -1105,7 +1090,6 @@ FindTimes:
 			ldi yH, high(time1)
 			call INT_KEYPAD
 			lds r16, temporary_string
-			; out PORTC, r16
 			cpi r16, 11
 			brsh stn1Time_Big
 			st Y, r16
@@ -1113,7 +1097,6 @@ FindTimes:
 			stn1Time_Big:
 			call print_TooLARGE
 			jmp stn1Time
-			
 		stn2Time:
 			do_lcd_command 0b10001011
 			do_lcd_char '2'
@@ -1122,7 +1105,6 @@ FindTimes:
 			ldi yH, high(time2)
 			call INT_KEYPAD
 			lds r16, temporary_string
-			; out PORTC, r16
 			cpi r16, 11
 			brsh stn2Time_Big
 			st Y, r16
@@ -1138,7 +1120,6 @@ FindTimes:
 			ldi yH, high(time3)
 			call INT_KEYPAD
 			lds r16, temporary_string
-			; out PORTC, r16
 			cpi r16, 11
 			brsh stn3Time_Big
 			st Y, r16
@@ -1153,7 +1134,6 @@ FindTimes:
 		cpi r16, 5
 		breq stn5Time
 		jmp next_time_bunch2
-		
 		stn4Time:
 			do_lcd_command 0b10001011
 			do_lcd_char '4'
@@ -1186,7 +1166,6 @@ FindTimes:
 			stn5Time_Big:
 			call print_TooLARGE
 			jmp stn5Time
-		
 		next_time_bunch2:
 
 		cpi r16, 6
@@ -1195,7 +1174,6 @@ FindTimes:
 		breq stn7Time
 		cpi r16, 8
 		breq stn8Time
-
 		jmp next_stn_name_bunch3
 		stn6Time:
 			do_lcd_command 0b10001011
@@ -1205,7 +1183,6 @@ FindTimes:
 			ldi yH, high(time6)
 			call INT_KEYPAD
 			lds r16, temporary_string
-			; out PORTC, r16
 			cpi r16, 11
 			brsh stn6Time_Big
 			st Y, r16
@@ -1213,7 +1190,6 @@ FindTimes:
 			stn6Time_Big:
 			call print_TooLARGE
 			jmp stn6Time
-			
 		stn7Time:
 			do_lcd_command 0b10001011
 			do_lcd_char '7'
@@ -1318,7 +1294,7 @@ FindStnNames:
 			jmp names_full
 		over_names_full:
 		out PORTC, r16
-		rcall sleep_100ms
+		call sleep_100ms
 		clr stringLength
 
 		cpi r16, 1
@@ -1537,8 +1513,8 @@ STRING_KEYPAD_CALL:
 		cpi stringLength, 0
 		breq no_string
 		; SAVE THE STRING
-		rcall sleep_100ms
-		rcall sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
 		jmp endString
 
 	no_string:
@@ -1557,8 +1533,8 @@ STRING_KEYPAD_CALL:
 		endString_JMP:
 			jmp endString
 		overEndstring_jmp:
-		rcall sleep_100ms
-		rcall sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
 		mov r22, temp
 		cpi InputCountFlag, 0
 		brne convertTwoOne_jmp
@@ -1627,10 +1603,10 @@ STRING_KEYPAD_CALL:
 				ldi r22, 'I'
 				jmp printVal_string
 			endConvert_string:
-			rcall sleep_25ms
-			rcall sleep_25ms
-			rcall sleep_25ms
-			rcall sleep_100ms
+			call sleep_25ms
+			call sleep_25ms
+			call sleep_25ms
+			call sleep_100ms
 			jmp STRING_KEYPAD
 		convertTwoOne:
 		
@@ -1771,8 +1747,8 @@ STRING_KEYPAD_CALL:
 
 		printVal_string:
 			inc stringLength
-			rcall lcd_data
-			rcall lcd_wait
+			call lcd_data
+			call lcd_wait
 			st Y+, r22
 			rjmp endConvert_string
 	
@@ -1781,8 +1757,8 @@ STRING_KEYPAD_CALL:
 
 		
 		;ldi r22, '='
-		;rcall lcd_data
-		;rcall lcd_wait
+		;call lcd_data
+		;call lcd_wait
 		pop r16
 		ret
 	; called when '*' is pressed
@@ -1900,16 +1876,16 @@ INT_KEYPAD:
 
 	int_end:
 		do_lcd_data temp
-		rcall sleep_100ms
-		rcall sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
 		st y+, temp
 		inc r21 ;number is only ever 2 digits long
 		cpi r21, 2
 		brlo Int_start_jmp
 		
 	int_parse:
-		rcall sleep_100ms
-		rcall sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
 		;do_lcd_char '*'
 		push temp
 		push r17
@@ -2039,56 +2015,56 @@ sleepstuff:
 		ret
 		
 	sleep_5ms:
-		rcall sleep_1ms
-		rcall sleep_1ms
-		rcall sleep_1ms
-		rcall sleep_1ms
-		rcall sleep_1ms
+		call sleep_1ms
+		call sleep_1ms
+		call sleep_1ms
+		call sleep_1ms
+		call sleep_1ms
 		ret
 
 	sleep_25ms:
-		rcall sleep_5ms
-		rcall sleep_5ms
-		rcall sleep_5ms
-		rcall sleep_5ms
-		rcall sleep_5ms
+		call sleep_5ms
+		call sleep_5ms
+		call sleep_5ms
+		call sleep_5ms
+		call sleep_5ms
 		ret
 
 	sleep_100ms:
-		rcall sleep_25ms
-		rcall sleep_25ms
-		rcall sleep_25ms
-		rcall sleep_25ms
+		call sleep_25ms
+		call sleep_25ms
+		call sleep_25ms
+		call sleep_25ms
 		ret
 
 	sleep_one_third:
-		rcall sleep_100ms
-		rcall sleep_25ms
-		rcall sleep_25ms
-		rcall sleep_5ms
-		rcall sleep_5ms
-		rcall sleep_5ms
-		rcall sleep_1ms
+		call sleep_100ms
+		call sleep_25ms
+		call sleep_25ms
+		call sleep_5ms
+		call sleep_5ms
+		call sleep_5ms
+		call sleep_1ms
 		ret
 	
 	sleep_500ms:
-		rcall sleep_100ms
-		rcall sleep_100ms
-		rcall sleep_100ms
-		rcall sleep_100ms
-		rcall sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
 		ret
 
 	sleep_1s:
-		rcall sleep_100ms
-		rcall sleep_100ms
-		rcall sleep_100ms
-		rcall sleep_100ms
-		rcall sleep_100ms
-		rcall sleep_100ms
-		rcall sleep_100ms
-		rcall sleep_100ms
-		rcall sleep_100ms
-		rcall sleep_100ms
-		rcall sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
 		ret
