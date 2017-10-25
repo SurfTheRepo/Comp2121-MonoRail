@@ -1,0 +1,141 @@
+printStnNames:
+    push yL
+    push yH
+    push r15
+    push r16
+	clr r16
+	lds r15, Max_Stations 
+	inc r15
+	;;get back Max_Stations
+	printprint_stnNameLoop:
+		inc r16 
+		cp r16, r15
+		brsh print_names_full_JMP
+		
+		do_lcd_command LCD_DISP_CLR
+		call printEnterStation		
+		subi r16, -'0'
+		do_lcd_data r16
+		subi r16, '0'
+		do_lcd_command LCD_SEC_LINE
+		
+		jmp print_over_names_full
+		print_names_full_JMP:
+			jmp print_names_full
+		print_over_names_full:
+		out PORTC, r16
+		rcall sleep_100ms
+		clr stringLength
+
+		cpi r16, 1
+		breq print_stn1_Name
+		cpi r16, 2
+		breq print_stn2_Name
+		cpi r16, 3
+		breq print_stn3_Name
+		cpi r16, 4
+		breq print_stn4_Name
+		cpi r16, 5
+		breq print_stn5_Name
+
+		jmp print_next_stn_name_bunch
+		print_stn1_Name:
+			ldi yL, low(Station1)
+			ldi yH, high(Station1)
+			call printStation
+			jmp print_stnNameLoop
+
+		print_stn2_Name:
+			ldi yL, low(Station2)
+			ldi yH, high(Station2)
+			call printStation
+			jmp print_stnNameLoop
+
+		print_stn3_Name:
+			ldi yL, low(Station3)
+			ldi yH, high(Station3)
+			call printStation
+			jmp print_stnNameLoop
+
+		print_stn4_Name:
+			ldi yL, low(Station4)
+			ldi yH, high(Station4)
+			call printStation
+			jmp print_stnNameLoop
+
+		print_stn5_Name:
+			ldi yL, low(Station5)
+			ldi yH, high(Station5)
+			call printStation
+			jmp print_stnNameLoop
+
+		print_next_stn_name_bunch:
+		cpi r16, 6
+		breq print_stn6_Name
+		cpi r16, 7
+		breq print_stn7_Name
+		cpi r16, 8
+		breq print_stn8_Name
+		cpi r16, 9
+		breq print_stn9_Name
+		cpi r16, 10
+		breq print_stn10_Name
+		;;
+		print_stn6_Name:
+			ldi yL, low(Station6)
+			ldi yH, high(Station6)
+			call printStation
+			jmp print_stnNameLoop
+
+		print_stn7_Name:
+			ldi yL, low(Station7)
+			ldi yH, high(Station7)
+			call printStation
+			jmp print_stnNameLoop
+
+		print_stn8_Name:
+			ldi yL, low(Station8)
+			ldi yH, high(Station8)
+			call printStation
+			jmp print_stnNameLoop
+
+		print_stn9_Name:
+			ldi yL, low(Station9)
+			ldi yH, high(Station9)
+			call printStation
+			jmp print_stnNameLoop
+
+		print_stn10_Name:
+			ldi yL, low(Station10)
+			ldi yH, high(Station10)
+			call printStation
+			jmp print_stnNameLoop
+		
+		print_names_full:
+		
+        pop r16
+        pop r15
+        pop yH
+        pop yL
+
+	ret
+
+printStation:
+    ld stringLength, y+
+    push r16
+    push r17
+    clr r17
+
+    do_lcd_command LCD_DISP_CLR
+	do_lcd_command LCD_HOME_LINE
+
+    for_print_station_loop:
+        ld r16, y+
+        do_lcd_data r16
+        inc r17
+        cp r17, stringLength
+        brne for_print_station_loop
+
+    pop r17
+    pop r16
+
