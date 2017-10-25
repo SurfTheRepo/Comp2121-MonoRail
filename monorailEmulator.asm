@@ -243,6 +243,7 @@
 	Print_too_Large: .db "Too Large Redo"
 	Print_too_Small: .db "Too Small Redo"
 	Print_Stop_times: .db "Enter Stop Time:";16
+	Print_No_String: .db "Plz Enter String" ;16
 DEFAULT:
 	reti							; used for interrupts that are not handled
 
@@ -539,6 +540,36 @@ printStatements:
 
 		ret
 
+	print_TooLARGE_funky:
+		push r16
+		push r17
+		push Zl
+		push Zh
+		ldi Zl,low(Print_too_Large<<1)	
+		ldi Zh,high(Print_Too_Large<<1)
+
+		;body ==== print stuff =====;
+		clr r17
+
+		;do_lcd_command LCD_DISP_CLR
+		do_lcd_command LCD_SEC_LINE
+		
+		for_Print_TooLarge_funky:
+			lpm r16, z+
+			do_lcd_data r16
+			inc r17
+			cpi r17, 14
+			brlo for_Print_TooLarge_funky
+		call sleep_1s
+
+		;call printEnterTimes
+		pop Zh
+		pop Zl
+		pop r17
+		pop r16
+
+		ret
+
 	print_TooSMALL:
 		push r16
 		push r17
@@ -561,8 +592,37 @@ printStatements:
 			brlo for_Print_TooSmall
 		call sleep_1s
 
-		call printEnterTimes
+		;call printEnterTimes
+		pop Zh
+		pop Zl
+		pop r17
+		pop r16
+
+		ret
+
+	PrintNoString:
+		;prologue
+		push r16
+		push r17
+		push Zl
+		push Zh
+		ldi Zl,low(Print_No_String<<1)	
+		ldi Zh,high(Print_No_String<<1)
+
+		;body ==== print stuff =====;
+		clr r17
+
+		;do_lcd_command LCD_DISP_CLR
 		do_lcd_command LCD_SEC_LINE
+		
+		for_Print_No_String:
+			lpm r16, z+
+			do_lcd_data r16
+			inc r17
+			cpi r17, 16
+			brlo for_Print_No_String
+
+
 		pop Zh
 		pop Zl
 		pop r17
@@ -598,6 +658,7 @@ printStatements:
 		pop r16
 
 		ret
+
 	printEnterStopTime:
 		;prologue
 		push r16
@@ -637,9 +698,19 @@ findStopTime:
 	lds r16, temporary_string
 	;out PORTC, r16
 	cpi r16, 6
-	brsh findStopTime
+	brsh findStopTime_Large
+	cpi r16, 2
+	brlo findStopTime_Small
 	sts Max_Stoptime, r16
 	ret
+
+	findStopTime_Large:
+	call Print_tooLARGE_funky
+	jmp findStopTime
+
+	findStopTime_Small:
+	call Print_tooSMALL
+	jmp findStopTime
 
 number_stations:
 	call printMaxStations	
@@ -1108,20 +1179,29 @@ STRING_KEYPAD_CALL:
 		add temp, row ; increment from 0xA by the row value
 		cpi temp, 'A'
 		breq printZ
-		jmp endString
+		jmp STRING_KEYPAD
 		printZ:
 			ldi r22, 'Z'
 			jmp printVal_string
 	symbols_string:
 		cpi col, 0 ; check if we have a star
 		breq star_string
+		jmp STRING_KEYPAD
 
 	star_string:	
-		rcall sleep_100ms
-		rcall sleep_100ms
-
+		
+		cpi stringLength, 0
+		breq no_string
 		; SAVE THE STRING
+		rcall sleep_100ms
+		rcall sleep_100ms
 		jmp endString
+
+	no_string:
+		call PrintNoString
+		call sleep_1s
+		call clear_sec_line
+		jmp STRING_KEYPAD
 
 	zero_string:
 		ldi temp, '0' ; set to zero
@@ -1528,7 +1608,24 @@ INT_KEYPAD:
 	
 
 ;=================================LCD STUFF===========================;
+
 LCD:
+	clear_sec_line:
+		push r16
+		push r17
+		ldi r17, ' '
+		clr r16
+		do_lcd_command LCD_SEC_LINE
+		for_clr_sec_line:
+			inc r16
+			do_lcd_data r17
+			cpi r16, 17
+			brlo for_clr_sec_line
+		do_lcd_command LCD_SEC_LINE
+		pop r17
+		pop r16
+	ret
+
 	lcd_command:
 		out PORTF, r21
 		nop
