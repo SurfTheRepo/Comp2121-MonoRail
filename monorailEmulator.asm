@@ -238,9 +238,10 @@
 	Print_Give_Stn_Names: .db "Giv Stn Name: "
 	Print_Not_Int: .db "Input 1-9"	;9
 	Print_Success: .db "SUCCESS!"
-	Print_Enter_Times: .db "Enter Times:"
+	Print_Enter_Times: .db "Enter Time "
 	Print_Enter_Name: .db "Give Stn Nm "
 	Print_too_Large: .db "Too Large Redo"
+	Print_too_Small: .db "Too Small Redo"
 	Print_Stop_times: .db "Enter Stop Time:";16
 DEFAULT:
 	reti							; used for interrupts that are not handled
@@ -496,6 +497,7 @@ printStatements:
 		pop r16
 
 		ret
+
 	printEnterTimes:
 		;prologue
 		push r16
@@ -515,7 +517,7 @@ printStatements:
 			lpm r16, z+
 			do_lcd_data r16
 			inc r17
-			cpi r17, 12
+			cpi r17, 11
 			brlo for_Print_Enter_Times
 
 		pop Zh
@@ -553,6 +555,7 @@ printStatements:
 		pop r16
 
 		ret
+
 	print_TooLARGE:
 		push r16
 		push r17
@@ -583,6 +586,38 @@ printStatements:
 		pop r16
 
 		ret
+
+	print_TooSMALL:
+		push r16
+		push r17
+		push Zl
+		push Zh
+		ldi Zl,low(Print_too_Small<<1)	
+		ldi Zh,high(Print_Too_Small<<1)
+
+		;body ==== print stuff =====;
+		clr r17
+
+		;do_lcd_command LCD_DISP_CLR
+		do_lcd_command LCD_SEC_LINE
+		
+		for_Print_TooSmall:
+			lpm r16, z+
+			do_lcd_data r16
+			inc r17
+			cpi r17, 14
+			brlo for_Print_TooSmall
+		call sleep_1s
+
+		call printEnterTimes
+		do_lcd_command LCD_SEC_LINE
+		pop Zh
+		pop Zl
+		pop r17
+		pop r16
+
+		ret
+
 	printGivStnName:
 		;prologue
 		push r16
@@ -649,10 +684,11 @@ findStopTime:
 
 	lds r16, temporary_string
 	;out PORTC, r16
-	cpi r16, 12	
+	cpi r16, 6
 	brsh findStopTime
 	sts Max_Stoptime, r16
 	ret
+
 number_stations:
 	call printMaxStations	
 	call sleep_500ms
@@ -660,7 +696,7 @@ number_stations:
 
 	lds r16, temporary_string
 	out PORTC, r16
-	cpi r16, 12	
+	cpi r16, 11
 	brsh number_stations
 	
 	sts Max_Stations, r16
@@ -679,7 +715,6 @@ FindTimes:
 		push r16
 		do_lcd_command LCD_DISP_CLR
 		call printEnterTimes	
-		do_lcd_command LCD_SEC_LINE
 		jmp over_times_full
 		times_full_JMP:
 			jmp times_full
@@ -696,12 +731,15 @@ FindTimes:
 		
 		jmp next_time_bunch1
 		stn1Time:
+			do_lcd_command 0b10001011
+			do_lcd_char '1'
+			do_lcd_command LCD_SEC_LINE
 			ldi yL, low(time1)
 			ldi yH, high(time1)
 			call INT_KEYPAD
 			lds r16, temporary_string
 			; out PORTC, r16
-			cpi r16, 12
+			cpi r16, 11
 			brsh stn1Time_Big
 			st Y, r16
 			jmp stnTimeLoop
@@ -710,12 +748,15 @@ FindTimes:
 			jmp stn1Time
 			
 		stn2Time:
+			do_lcd_command 0b10001011
+			do_lcd_char '2'
+			do_lcd_command LCD_SEC_LINE
 			ldi yL, low(time2)
 			ldi yH, high(time2)
 			call INT_KEYPAD
 			lds r16, temporary_string
 			; out PORTC, r16
-			cpi r16, 12
+			cpi r16, 11
 			brsh stn2Time_Big
 			st Y, r16
 			jmp stnTimeLoop
@@ -723,12 +764,15 @@ FindTimes:
 			call print_TooLARGE
 			jmp stn2Time
 		stn3Time:
+			do_lcd_command 0b10001011
+			do_lcd_char '3'
+			do_lcd_command LCD_SEC_LINE
 			ldi yL, low(time3)
 			ldi yH, high(time3)
 			call INT_KEYPAD
 			lds r16, temporary_string
 			; out PORTC, r16
-			cpi r16, 12
+			cpi r16, 11
 			brsh stn3Time_Big
 			st Y, r16
 			jmp stnTimeLoop
@@ -744,12 +788,15 @@ FindTimes:
 		jmp next_time_bunch2
 		
 		stn4Time:
+			do_lcd_command 0b10001011
+			do_lcd_char '4'
+			do_lcd_command LCD_SEC_LINE
 			ldi yL, low(time4)
 			ldi yH, high(time4)
 			call INT_KEYPAD
 			lds r16, temporary_string
 			; out PORTC, r16
-			cpi r16, 12
+			cpi r16, 11
 			brsh stn4Time_Big
 			st Y, r16
 			jmp stnTimeLoop
@@ -757,12 +804,15 @@ FindTimes:
 			call print_TooLARGE
 			jmp stn4Time
 		stn5Time:
+			do_lcd_command 0b10001011
+			do_lcd_char '5'
+			do_lcd_command LCD_SEC_LINE
 			ldi yL, low(time5)
 			ldi yH, high(time5)
 			call INT_KEYPAD
 			lds r16, temporary_string
 			; out PORTC, r16
-			cpi r16, 12
+			cpi r16, 11
 			brsh stn5Time_Big
 			st Y, r16
 			jmp stnTimeLoop
@@ -781,12 +831,15 @@ FindTimes:
 
 		jmp next_stn_name_bunch3
 		stn6Time:
+			do_lcd_command 0b10001011
+			do_lcd_char '6'
+			do_lcd_command LCD_SEC_LINE
 			ldi yL, low(time6)
 			ldi yH, high(time6)
 			call INT_KEYPAD
 			lds r16, temporary_string
 			; out PORTC, r16
-			cpi r16, 12
+			cpi r16, 11
 			brsh stn6Time_Big
 			st Y, r16
 			jmp stnTimeLoop
@@ -795,12 +848,15 @@ FindTimes:
 			jmp stn6Time
 			
 		stn7Time:
+			do_lcd_command 0b10001011
+			do_lcd_char '7'
+			do_lcd_command LCD_SEC_LINE
 			ldi yL, low(time7)
 			ldi yH, high(time7)
 			call INT_KEYPAD
 			lds r16, temporary_string
 			; out PORTC, r16
-			cpi r16, 12
+			cpi r16, 11
 			brsh stn7Time_Big
 			st Y, r16
 			jmp stnTimeLoop
@@ -808,12 +864,15 @@ FindTimes:
 			call print_TooLARGE
 			jmp stn7Time
 		stn8Time:
+			do_lcd_command 0b10001011
+			do_lcd_char '8'
+			do_lcd_command LCD_SEC_LINE
 			ldi yL, low(time8)
 			ldi yH, high(time8)
 			call INT_KEYPAD
 			lds r16, temporary_string
 			; out PORTC, r16
-			cpi r16, 12
+			cpi r16, 11
 			brsh stn8Time_Big
 			st Y, r16
 			jmp stnTimeLoop
@@ -830,12 +889,15 @@ FindTimes:
 
 		
 		stn9Time:
+			do_lcd_command 0b10001011
+			do_lcd_char '9'
+			do_lcd_command LCD_SEC_LINE
 			ldi yL, low(time9)
 			ldi yH, high(time9)
 			call INT_KEYPAD
 			lds r16, temporary_string
 			; out PORTC, r16
-			cpi r16, 12
+			cpi r16, 11
 			brsh stn9Time_Big
 			st Y, r16
 			jmp stnTimeLoop
@@ -844,12 +906,16 @@ FindTimes:
 			call sleep_1ms
 			jmp stn9Time
 		stn10Time:
+			do_lcd_command 0b10001011
+			do_lcd_char '1'
+			do_lcd_char '0'
+			do_lcd_command LCD_SEC_LINE
 			ldi yL, low(time10)
 			ldi yH, high(time10)
 			call INT_KEYPAD
 			lds r16, temporary_string
 			; out PORTC, r16
-			cpi r16, 12
+			cpi r16, 11
 			brsh stn10Time_Big
 			st Y, r16
 			jmp stnTimeLoop
@@ -1466,6 +1532,8 @@ INT_KEYPAD:
 		brlo Int_start_jmp
 		
 	int_parse:
+		rcall sleep_100ms
+		rcall sleep_100ms
 		;do_lcd_char '*'
 		push temp
 		push r17
