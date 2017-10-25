@@ -455,6 +455,7 @@ second_occured:
 
 		stationStop_call:
 			call stationStop
+			clr stopFlag
 		;
 		change_station:
 			inc current_station
