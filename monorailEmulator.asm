@@ -195,7 +195,7 @@
     time9:     .byte 1
     time10:    .byte 1
 
-	temporary_sxtring: .byte 10
+	temporary_string: .byte 10
 	
 .cseg	;;; Got this table from lecture slides
 
