@@ -195,11 +195,11 @@
     time9:     .byte 1
     time10:    .byte 1
 
-	temporary_string: .byte 10
+	temporary_sxtring: .byte 10
 	
 .cseg	;;; Got this table from lecture slides
 
-; Vector Table
+; Vector Tablett
 .org 0x0000
 	jmp RESET
 	jmp DEFAULT			 			; IRQ0 Handler
@@ -407,19 +407,16 @@ start_emulator:
 
 ;MonorailLoop:
 emulator:
-	;print first stn name, 
-	
-
 	cpi temp, 3 ;;;loops every 0.3seconds so finds if 1 second occured
 	breq second_occurred_jmp
 	jmp over_second_occured
 	second_occurred_jmp:
 		
-		ldi r16, 9
-		out PORTC, r16
-		call sleep_500ms
-		ldi r16, 27
-		out PORTC, r16
+		; ldi r16, 9
+		; out PORTC, r16
+		; call sleep_500ms
+		; ldi r16, 27
+		; out PORTC, r16
 		call second_occured
 
 	over_second_occured:
@@ -427,7 +424,7 @@ emulator:
 	inc temp
 	call printStnName
 	call MotorStart
-	call sleep_100ms
+	; call sleep_100ms
 	push r16
 	ldi r16, 20
 	out PORTC, r16
@@ -442,9 +439,41 @@ emulator:
 
 second_occured:
 	inc secondCount
-	clr temp
-	push temp
+	; clr temp
+	; push temp
 	mov temp, current_station
+
+	call getting_time_between_station
+
+	;;now compare current_travel by the elapsed seconds
+	cp current_travel_time, secondCount
+	breq at_new_station 
+	jmp end_second_occured
+	
+	at_new_station:
+		clr secondCount
+		cpi stopFlag, 1
+		breq stationStop_call
+		jmp change_station
+
+		stationStop_call:
+			call stationStop
+		;
+		change_station:
+			inc current_station
+			lds r18, Max_Stations	
+			cp r18, current_station
+			brlo station_loop_around
+			jmp end_second_occured
+			station_loop_around:
+				ldi current_station, 1
+
+	end_second_occured:
+	clr temp
+	ret
+
+
+getting_time_between_station:
 	cpi r16, 1
 	breq get_time_1
 	cpi r16, 2
@@ -498,34 +527,8 @@ second_occured:
 		lds current_travel_time, time10
 		jmp got_current_travel
 
-
 	got_current_travel:
-
-		;;now compare current_travel by the elapsed seconds
-		cp current_travel_time, secondCount
-		breq at_new_station 
-		jmp no_change
-
-	at_new_station:
-		clr secondCount
-		cpi stopFlag, 1
-		breq stationStop_call
-		jmp change_station
-
-		stationStop_call:
-			call stationStop
-		;
-		change_station:
-			inc current_station
-			lds r18, Max_Stations	
-			cp r18, current_station
-			brlo station_loop_around
-			jmp no_change
-			station_loop_around:
-				ldi current_station, 1
-
-	no_change:
-	ret
+		ret
 
 ;; Stops the train at station for max stop time
 stationStop:	;;;
