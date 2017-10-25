@@ -354,6 +354,9 @@ Initialisation:
 
 	call findStopTime
 
+	call sleep_100ms
+
+	
 	jmp start_emulator
 	
 
@@ -378,10 +381,10 @@ start_emulator:
 	do_lcd_char 'T'
 
 	rcall sleep_1s
-	rcall sleep_1s
-	rcall sleep_1s
-	rcall sleep_1s
-	rcall sleep_1s
+	; rcall sleep_1s
+	; rcall sleep_1s
+	; rcall sleep_1s
+	; rcall sleep_1s
 	do_lcd_command LCD_DISP_CLR
 	do_lcd_command LCD_HOME_LINE
 	do_lcd_char 'E'
@@ -393,11 +396,13 @@ start_emulator:
 	do_lcd_char 'E'
 
 	sei
+
 	lds r15, Max_Stations
 	clr temp
 	clr secondCount
 	inc secondCount
 	ldi current_station, 1
+
 	jmp emulator
 
 ;MonorailLoop:
@@ -409,20 +414,26 @@ emulator:
 	breq second_occurred_jmp
 	jmp over_second_occured
 	second_occurred_jmp:
+		
+		ldi r16, 9
+		out PORTC, r16
+		call sleep_500ms
+		ldi r16, 27
+		out PORTC, r16
 		call second_occured
+
 	over_second_occured:
 
 	inc temp
 	call printStnName
-
+	call MotorStart
+	call sleep_100ms
 	push r16
 	ldi r16, 20
 	out PORTC, r16
-	call MotorStart
 	rcall sleep_one_third
 	ldi r16, 10
 	out PORTC, r16
-	call MotorStop
 	rcall sleep_one_third
 	pop r16
 
@@ -505,7 +516,13 @@ second_occured:
 			call stationStop
 		;
 		change_station:
-			inc current_station	
+			inc current_station
+			lds r18, Max_Stations	
+			cp r18, current_station
+			brlo station_loop_around
+			jmp no_change
+			station_loop_around:
+				ldi current_station, 1
 
 	no_change:
 	ret
@@ -899,8 +916,6 @@ printStatements:
 		push r16
 		push current_station
 		mov r16, current_station
-		out PORTC, r16
-
 		cpi r16, 1
 		breq print_stn1_Name
 		cpi r16, 2
@@ -1012,7 +1027,7 @@ printStatements:
 
 		pop r17
 		pop r16
-
+		ret 
 	
 
 findStopTime:
