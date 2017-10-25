@@ -38,6 +38,8 @@
 	.def stopFlag = r22
 	.def secondCount = r17
 	.def stop_time = r18
+	.def current_station = r24
+	.def current_travel_time = r25
 
 	.def InputCountFlag = r24
 	.def firstChar = r21
@@ -190,7 +192,7 @@
     time6:     .byte 1
     time7:     .byte 1
     time8:     .byte 1
-    time9:    .byte 1
+    time9:     .byte 1
     time10:    .byte 1
 
 	temporary_string: .byte 10
@@ -394,57 +396,141 @@ start_emulator:
 	lds r15, Max_Stations
 	clr temp
 	clr secondCount
+	inc secondCount
+	ldi current_station, 1
 	jmp emulator
-
-
-;; Stops the train at station for max stop time
-stationStop:	;;;
-	push temp
-	clr temp
-	lds r18, Max_Stoptime
-	stationStopLoop:
-		cmp r18, temp
-		breq stop_time_done
-		inc temp
-		call sleep_1s
-		jmp stationStopLoop	
-	stop_time_done:
-	pop temp
-	ret
-
-1secondE:
-		clr temp
-		inc secondCount
-
-		cmp secondCount, 
 
 ;MonorailLoop:
 emulator:
 	;print first stn name, 
-	;loops every 0.3seconds
+	
 
-	cpi temp, 3 ;; 1 second
-	breq 1secondE
+	cpi temp, 3 ;;;loops every 0.3seconds so finds if 1 second occured
+	breq second_occurred_jmp
+	jmp over_second_occured
+	second_occurred_jmp:
+		call second_occured
+	over_second_occured:
+
 	inc temp
-
+	call printStnName
 
 	push r16
 	ldi r16, 20
 	out PORTC, r16
 	call MotorStart
-	rcall sleep_100ms
-	rcall sleep_25ms
-	rcall sleep_25ms
+	rcall sleep_one_third
 	ldi r16, 10
 	out PORTC, r16
 	call MotorStop
-	rcall sleep_100ms
-	rcall sleep_25ms
-	rcall sleep_25ms
+	rcall sleep_one_third
 	pop r16
 
 
-	jmp emulator	
+	jmp emulator
+
+second_occured:
+	inc secondCount
+	clr temp
+	push temp
+	mov temp, current_station
+	cpi r16, 1
+	breq get_time_1
+	cpi r16, 2
+	breq get_time_2
+	cpi r16, 3
+	breq get_time_4
+	cpi r16, 5
+	breq get_time_5
+	jmp second_occured_bunch
+	get_time_1:
+		
+		lds current_travel_time, time1
+		jmp got_current_travel
+	get_time_2:
+		lds current_travel_time, time2
+		jmp got_current_travel
+	get_time_3:
+		lds current_travel_time, time3		
+		jmp got_current_travel
+	get_time_4:
+		lds current_travel_time, time5
+		jmp got_current_travel
+	get_time_5:
+		lds current_travel_time, time5
+		jmp got_current_travel
+	;compare second against time1, time2, etc
+	second_occured_bunch:
+	cpi r16, 6
+	breq get_time_6
+	cpi r16, 7
+	breq get_time_7
+	cpi r16, 8
+	breq get_time_8
+	cpi r16, 9
+	breq get_time_9
+	cpi r16, 10
+	breq get_time_10
+	get_time_6:
+		lds current_travel_time, time6
+		jmp got_current_travel
+	get_time_7:
+		lds current_travel_time, time7
+		jmp got_current_travel
+	get_time_8:
+		lds current_travel_time, time8	
+		jmp got_current_travel
+	get_time_9:
+		lds current_travel_time, time9
+		jmp got_current_travel
+	get_time_10:
+		lds current_travel_time, time10
+		jmp got_current_travel
+
+
+	got_current_travel:
+
+		;;now compare current_travel by the elapsed seconds
+		cp current_travel_time, secondCount
+		breq at_new_station 
+		jmp no_change
+
+	at_new_station:
+		clr secondCount
+		cpi stopFlag, 1
+		breq stationStop_call
+		jmp change_station
+
+		stationStop_call:
+			call stationStop
+		;
+		change_station:
+			inc current_station	
+
+	no_change:
+	ret
+
+;; Stops the train at station for max stop time
+stationStop:	;;;
+	call MotorStop
+	push temp
+	push r18
+	push r16
+	ldi r16, 3
+	clr temp
+	lds r18, Max_Stoptime
+	stationStopLoop:
+		cp r18, temp
+		breq stop_time_done
+		inc temp
+		call sleep_1s
+		jmp stationStopLoop	
+	stop_time_done:
+	pop r16
+	pop r18
+	pop temp
+	call MotorStart
+	ret		
 
 MotorStart:
 		push temp
@@ -805,6 +891,129 @@ printStatements:
 
 		ret
 
+
+	printStnName:
+		push yL
+		push yH
+		push r15
+		push r16
+		push current_station
+		mov r16, current_station
+		out PORTC, r16
+
+		cpi r16, 1
+		breq print_stn1_Name
+		cpi r16, 2
+		breq print_stn2_Name
+		cpi r16, 3
+		breq print_stn3_Name
+		cpi r16, 4
+		breq print_stn4_Name
+		cpi r16, 5
+		breq print_stn5_Name
+
+		jmp print_next_stn_name_bunch
+		print_stn1_Name:
+			ldi yL, low(Station1)
+			ldi yH, high(Station1)
+			call printStation
+			jmp print_names_full
+
+		print_stn2_Name:
+			ldi yL, low(Station2)
+			ldi yH, high(Station2)
+			call printStation
+			jmp print_names_full
+
+		print_stn3_Name:
+			ldi yL, low(Station3)
+			ldi yH, high(Station3)
+			call printStation
+			jmp print_names_full
+
+		print_stn4_Name:
+			ldi yL, low(Station4)
+			ldi yH, high(Station4)
+			call printStation
+			jmp print_names_full
+
+		print_stn5_Name:
+			ldi yL, low(Station5)
+			ldi yH, high(Station5)
+			call printStation
+			jmp print_names_full
+
+		print_next_stn_name_bunch:
+		cpi r16, 6
+		breq print_stn6_Name
+		cpi r16, 7
+		breq print_stn7_Name
+		cpi r16, 8
+		breq print_stn8_Name
+		cpi r16, 9
+		breq print_stn9_Name
+		cpi r16, 10
+		breq print_stn10_Name
+		;;
+		print_stn6_Name:
+			ldi yL, low(Station6)
+			ldi yH, high(Station6)
+			call printStation
+			jmp print_names_full
+
+		print_stn7_Name:
+			ldi yL, low(Station7)
+			ldi yH, high(Station7)
+			call printStation
+			jmp print_names_full
+
+		print_stn8_Name:
+			ldi yL, low(Station8)
+			ldi yH, high(Station8)
+			call printStation
+			jmp print_names_full
+
+		print_stn9_Name:
+			ldi yL, low(Station9)
+			ldi yH, high(Station9)
+			call printStation
+			jmp print_names_full
+
+		print_stn10_Name:
+			ldi yL, low(Station10)
+			ldi yH, high(Station10)
+			call printStation
+			jmp print_names_full
+		
+		print_names_full:
+		pop current_station
+		pop r16
+		pop r15
+		pop yH
+		pop yL
+
+		ret
+
+	printStation:
+		ld stringLength, y+
+		push r16
+		push r17
+		clr r17
+
+		do_lcd_command LCD_DISP_CLR
+		do_lcd_command LCD_HOME_LINE
+
+		for_print_station_loop:
+			ld r16, y+
+			do_lcd_data r16
+			inc r17
+			cp r17, stringLength
+			brne for_print_station_loop
+
+		pop r17
+		pop r16
+
+	
 
 findStopTime:
 	call printEnterStopTime
@@ -1832,6 +2041,16 @@ sleepstuff:
 		rcall sleep_25ms
 		rcall sleep_25ms
 		rcall sleep_25ms
+		ret
+
+	sleep_one_third:
+		rcall sleep_100ms
+		rcall sleep_25ms
+		rcall sleep_25ms
+		rcall sleep_5ms
+		rcall sleep_5ms
+		rcall sleep_5ms
+		rcall sleep_1ms
 		ret
 	
 	sleep_500ms:
