@@ -246,62 +246,69 @@ DEFAULT:
 	reti							; used for interrupts that are not handled
 
 RESET:
-	ldi r16, low(RAMEND)
-	out SPL, r16
-	ldi r16, high(RAMEND)
-	out SPH, r16
+	;========Setting Up stack=============
+		ldi r16, low(RAMEND)
+		out SPL, r16
+		ldi r16, high(RAMEND)
+		out SPH, r16
 
 	;=======LED STUFF======;
-	ser temp
-	out DDRC, temp
-	
-	out PORTC, temp
+		ser temp
+		out DDRC, temp
+		
+		out PORTC, temp
 
-
+	;==========Motor Setup===========;
+		ldi temp, (1<<PE4)		;labeled PE2 actually PE4 
+		out DDRE, temp   		;output
+		
 	;==========keyPadInit======;
-	ldi temp, PORTLDIR ; columns are outputs, rows are inputs
-	STS DDRL, temp     ; cannot use out
-	
+		ldi temp, PORTLDIR ; columns are outputs, rows are inputs
+		STS DDRL, temp     ; cannot use out
+		
 
-	ser temp					;Set temp to all 1's
-	out DDRF, temp				;Port F = output
-	out DDRA, temp				;Port A = output
-	clr temp
-	out PORTF, temp
-	out PORTA, temp
+		ser temp					;Set temp to all 1's
+		out DDRF, temp				;Port F = output
+		out DDRA, temp				;Port A = output
+		clr temp
+		out PORTF, temp
+		out PORTA, temp
+
 	;=======Set LCD stuff========;
-	do_lcd_command LCD_FUNC_SET		;2x5x7
-	rcall sleep_5ms
-	do_lcd_command LCD_FUNC_SET		;2x5x7
-	rcall sleep_1ms
-	do_lcd_command LCD_FUNC_SET
-	do_lcd_command LCD_FUNC_SET
-	do_lcd_command LCD_DISP_OFF
-	do_lcd_command LCD_DISP_CLR
-	do_lcd_command LCD_ENTR_SET
-	do_lcd_command LCD_DISP_ON
-	
+		do_lcd_command LCD_FUNC_SET		;2x5x7
+		rcall sleep_5ms
+		do_lcd_command LCD_FUNC_SET		;2x5x7
+		rcall sleep_1ms
+		do_lcd_command LCD_FUNC_SET
+		do_lcd_command LCD_FUNC_SET
+		do_lcd_command LCD_DISP_OFF
+		do_lcd_command LCD_DISP_CLR
+		do_lcd_command LCD_ENTR_SET
+		do_lcd_command LCD_DISP_ON
+		
 
-	do_lcd_command LCD_HOME_LINE
-	do_lcd_char 'F'
-	do_lcd_char 'U'
-	do_lcd_char 'C'
-	do_lcd_char 'K'
-	do_lcd_char ' '
-	do_lcd_char 'R'
-	do_lcd_char 'E'
-	do_lcd_char 'S'
-	do_lcd_char 'E'
-	do_lcd_char 'T'
-	do_lcd_char '!'
-	rcall sleep_100ms
-	rcall sleep_100ms
-	rcall sleep_100ms
-	rcall sleep_100ms
-	rcall sleep_100ms
-	rcall sleep_100ms
-	rcall sleep_100ms
-	rcall sleep_100ms
+		do_lcd_command LCD_HOME_LINE
+		do_lcd_char 'F'
+		do_lcd_char 'U'
+		do_lcd_char 'C'
+		do_lcd_char 'K'
+		do_lcd_char ' '
+		do_lcd_char 'R'
+		do_lcd_char 'E'
+		do_lcd_char 'S'
+		do_lcd_char 'E'
+		do_lcd_char 'T'
+		do_lcd_char '!'
+		rcall sleep_100ms
+		rcall sleep_100ms
+		rcall sleep_100ms
+		rcall sleep_100ms
+		rcall sleep_100ms
+		rcall sleep_100ms
+		rcall sleep_100ms
+		rcall sleep_100ms
+
+
 	jmp Initialisation
 
 ;======================Deals with initialising all the station names and station times==========================
@@ -372,11 +379,52 @@ start_emulator:
 emulator:
 		ldi r16, 20
 		out PORTC, r16
+		call MotorStart
 		rcall sleep_1s
 		ldi r16, 10
 		out PORTC, r16
+		call MotorStop
 		rcall sleep_1s
 		jmp emulator	
+
+MotorStart:
+		
+		clr temp
+		ldi temp,0x7E
+		sts OCR3BL, temp		;Determine duty free
+		clr temp
+		sts OCR3BH, temp
+		ldi temp, (1<<WGM30)|(1<<COM3B1) ; set the Timer3 to Phase Correct PWM mode (8-bit) aka Mode1
+		sts TCCR3A, temp
+		ldi temp, (1<<CS31)
+		sts TCCR3B, temp		; Prescaling value=8
+		clr temp
+		ret
+
+MotorStop:
+		
+		clr temp
+		ldi temp,0x00
+		sts OCR3BL, temp		;Determine duty free
+		clr temp
+		sts OCR3BH, temp
+		ldi temp, (1<<WGM30)|(1<<COM3B1) ; set the Timer3 to Phase Correct PWM mode (8-bit) aka Mode1
+		sts TCCR3A, temp
+		ldi temp, (1<<CS31)
+		sts TCCR3B, temp		; Prescaling value=8
+		clr temp
+		ret
+
+
+
+
+
+
+
+
+
+
+
 
 
 
