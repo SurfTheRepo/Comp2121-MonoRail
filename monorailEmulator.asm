@@ -35,6 +35,9 @@
 	.def mask = r18
 	.def col = r19
 	.def row = r20
+	.def stopFlag = r22
+	.def secondCount = r17
+	.def stop_time = r18
 
 	.def InputCountFlag = r24
 	.def firstChar = r21
@@ -197,9 +200,9 @@
 ; Vector Table
 .org 0x0000
 	jmp RESET
-	jmp DEFAULT						; IRQ0 Handler
-	jmp DEFAULT						; IRQ1 Handler
-	jmp DEFAULT 					; IRQ2 Handler
+	jmp DEFAULT			 			; IRQ0 Handler
+	jmp BUTTONINTERRUPT				; IRQ1 Handler
+	jmp BUTTONINTERRUPT	 			; IRQ2 Handler
 	jmp DEFAULT 					; IRQ3 Handler
 	jmp DEFAULT 					; IRQ4 Handler
 	jmp DEFAULT 					; IRQ5 Handler
@@ -253,6 +256,21 @@ RESET:
 		out SPL, r16
 		ldi r16, high(RAMEND)
 		out SPH, r16
+
+
+
+	;========buttons for Interrupt 1&2============
+
+		ldi temp, (1 << ISC21 | 1 << ISC11 | 1 << ISC01)      ; set INT2 as falling-edge 
+    	sts EICRA, temp             ; edge triggered interrupt
+		;=========Enable Interrupt=========
+   		in temp, EIMSK              ; enable INT2
+    	ori temp, (1<<INT2 | 1<<INT1 | 1<<INT0)
+    	out EIMSK, temp
+
+
+
+
 
 	;=======LED STUFF======;
 		ser temp
@@ -315,6 +333,8 @@ RESET:
 
 ;======================Deals with initialising all the station names and station times==========================
 Initialisation:
+	cli
+
 	in YL, SPL
 	in YH, SPH
 	sbiw Y, 4
@@ -331,10 +351,6 @@ Initialisation:
 	call FindTimes
 
 	call findStopTime
-
-	
-		
-
 
 	jmp start_emulator
 	
@@ -374,23 +390,64 @@ start_emulator:
 	do_lcd_char 'T'
 	do_lcd_char 'E'
 
+	sei
+	lds r15, Max_Stations
+	clr temp
+	clr secondCount
 	jmp emulator
 
 
+;; Stops the train at station for max stop time
+stationStop:	;;;
+	push temp
+	clr temp
+	lds r18, Max_Stoptime
+	stationStopLoop:
+		cmp r18, temp
+		breq stop_time_done
+		inc temp
+		call sleep_1s
+		jmp stationStopLoop	
+	stop_time_done:
+	pop temp
+	ret
+
+1secondE:
+		clr temp
+		inc secondCount
+
+		cmp secondCount, 
+
 ;MonorailLoop:
 emulator:
-		ldi r16, 20
-		out PORTC, r16
-		call MotorStart
-		rcall sleep_1s
-		ldi r16, 10
-		out PORTC, r16
-		call MotorStop
-		rcall sleep_1s
-		jmp emulator	
+	;print first stn name, 
+	;loops every 0.3seconds
+
+	cpi temp, 3 ;; 1 second
+	breq 1secondE
+	inc temp
+
+
+	push r16
+	ldi r16, 20
+	out PORTC, r16
+	call MotorStart
+	rcall sleep_100ms
+	rcall sleep_25ms
+	rcall sleep_25ms
+	ldi r16, 10
+	out PORTC, r16
+	call MotorStop
+	rcall sleep_100ms
+	rcall sleep_25ms
+	rcall sleep_25ms
+	pop r16
+
+
+	jmp emulator	
 
 MotorStart:
-		
+		push temp
 		clr temp
 		ldi temp,0x7E
 		sts OCR3BL, temp		;Determine duty free
@@ -401,10 +458,11 @@ MotorStart:
 		ldi temp, (1<<CS31)
 		sts TCCR3B, temp		; Prescaling value=8
 		clr temp
+		pop temp
 		ret
 
 MotorStop:
-		
+		push temp
 		clr temp
 		ldi temp,0x00
 		sts OCR3BL, temp		;Determine duty free
@@ -415,6 +473,7 @@ MotorStop:
 		ldi temp, (1<<CS31)
 		sts TCCR3B, temp		; Prescaling value=8
 		clr temp
+		pop temp
 		ret
 
 
@@ -423,7 +482,17 @@ MotorStop:
 
 
 
-
+BUTTONINTERRUPT:
+	cli 
+	push r16
+	ldi stopFlag, 1
+	ldi r16, 244
+	out PORTC, r16
+	call sleep_1s
+	clr r16
+	out PORTC, r16
+	pop r16
+	reti
 
 
 
