@@ -35,6 +35,11 @@
 	.def mask = r18
 	.def col = r19
 	.def row = r20
+	.def stopFlag = r22
+	.def secondCount = r17
+	.def stop_time = r18
+	.def current_station = r24
+	.def current_travel_time = r25
 
 	.def InputCountFlag = r24
 	.def firstChar = r21
@@ -121,32 +126,32 @@
 	.macro do_lcd_command
 		push r21
 		ldi r21, @0
-		rcall lcd_command
-		rcall lcd_wait
+		call lcd_command
+		call lcd_wait
 		pop r21
 	.endmacro
 
 	.macro funky_do_lcd_command
 		push r21
 		mov r21, @0
-		rcall lcd_command
-		rcall lcd_wait
+		call lcd_command
+		call lcd_wait
 		pop r21
 	.endmacro
 
 	.macro do_lcd_data
 		push r22
 		mov r22, @0
-		rcall lcd_data
-		rcall lcd_wait
+		call lcd_data
+		call lcd_wait
 		pop r22
 	.endmacro
 
 	.macro do_lcd_char
 		push r22
 		ldi r22, @0
-		rcall lcd_data
-		rcall lcd_wait
+		call lcd_data
+		call lcd_wait
 		pop r22
 	.endmacro
 
@@ -187,19 +192,19 @@
     time6:     .byte 1
     time7:     .byte 1
     time8:     .byte 1
-    time9:    .byte 1
+    time9:     .byte 1
     time10:    .byte 1
 
 	temporary_string: .byte 10
 	
 .cseg	;;; Got this table from lecture slides
 
-; Vector Table
+; Vector Tablett
 .org 0x0000
 	jmp RESET
-	jmp DEFAULT						; IRQ0 Handler
-	jmp DEFAULT						; IRQ1 Handler
-	jmp DEFAULT 					; IRQ2 Handler
+	jmp DEFAULT			 			; IRQ0 Handler
+	jmp BUTTONINTERRUPT				; IRQ1 Handler
+	jmp BUTTONINTERRUPT	 			; IRQ2 Handler
 	jmp DEFAULT 					; IRQ3 Handler
 	jmp DEFAULT 					; IRQ4 Handler
 	jmp DEFAULT 					; IRQ5 Handler
@@ -248,66 +253,95 @@ DEFAULT:
 	reti							; used for interrupts that are not handled
 
 RESET:
-	ldi r16, low(RAMEND)
-	out SPL, r16
-	ldi r16, high(RAMEND)
-	out SPH, r16
+	;========Setting Up stack=============
+		ldi r16, low(RAMEND)
+		out SPL, r16
+		ldi r16, high(RAMEND)
+		out SPH, r16
+
+
+
+	;========buttons for Interrupt 1&2============
+
+		ldi temp, (1 << ISC21 | 1 << ISC11 | 1 << ISC01)      ; set INT2 as falling-edge 
+    	sts EICRA, temp             ; edge triggered interrupt
+		;=========Enable Interrupt=========
+   		in temp, EIMSK              ; enable INT2
+    	ori temp, (1<<INT2 | 1<<INT1 | 1<<INT0)
+    	out EIMSK, temp
+
+
+
+
 
 	;=======LED STUFF======;
-	ser temp
-	out DDRC, temp
-	
-	out PORTC, temp
+		ser temp
+		out DDRC, temp
+		
+		out PORTC, temp
 
+	;==========Motor Setup===========;
+		ldi temp, (1<<PE4)		;labeled PE2 actually PE4 
+		out DDRE, temp   		;output
 
+		ldi temp, (1<<WGM30)|(1<<COM3B1) ; set the Timer3 to Phase Correct PWM mode (8-bit) aka Mode1
+		sts TCCR3A, temp
+		ldi temp, (1<<CS31)
+		sts TCCR3B, temp		; Prescaling value=8
+		
 	;==========keyPadInit======;
-	ldi temp, PORTLDIR ; columns are outputs, rows are inputs
-	STS DDRL, temp     ; cannot use out
-	
+		ldi temp, PORTLDIR ; columns are outputs, rows are inputs
+		STS DDRL, temp     ; cannot use out
+		
 
-	ser temp					;Set temp to all 1's
-	out DDRF, temp				;Port F = output
-	out DDRA, temp				;Port A = output
-	clr temp
-	out PORTF, temp
-	out PORTA, temp
+		ser temp					;Set temp to all 1's
+		out DDRF, temp				;Port F = output
+		out DDRA, temp				;Port A = output
+		clr temp
+		out PORTF, temp
+		out PORTA, temp
+
 	;=======Set LCD stuff========;
-	do_lcd_command LCD_FUNC_SET		;2x5x7
-	rcall sleep_5ms
-	do_lcd_command LCD_FUNC_SET		;2x5x7
-	rcall sleep_1ms
-	do_lcd_command LCD_FUNC_SET
-	do_lcd_command LCD_FUNC_SET
-	do_lcd_command LCD_DISP_OFF
-	do_lcd_command LCD_DISP_CLR
-	do_lcd_command LCD_ENTR_SET
-	do_lcd_command LCD_DISP_ON
-	
+		do_lcd_command LCD_FUNC_SET		;2x5x7
+		call sleep_5ms
+		do_lcd_command LCD_FUNC_SET		;2x5x7
+		call sleep_1ms
+		do_lcd_command LCD_FUNC_SET
+		do_lcd_command LCD_FUNC_SET
+		do_lcd_command LCD_DISP_OFF
+		do_lcd_command LCD_DISP_CLR
+		do_lcd_command LCD_ENTR_SET
+		do_lcd_command LCD_DISP_ON
+		
 
-	do_lcd_command LCD_HOME_LINE
-	do_lcd_char 'F'
-	do_lcd_char 'U'
-	do_lcd_char 'C'
-	do_lcd_char 'K'
-	do_lcd_char ' '
-	do_lcd_char 'R'
-	do_lcd_char 'E'
-	do_lcd_char 'S'
-	do_lcd_char 'E'
-	do_lcd_char 'T'
-	do_lcd_char '!'
-	rcall sleep_100ms
-	rcall sleep_100ms
-	rcall sleep_100ms
-	rcall sleep_100ms
-	rcall sleep_100ms
-	rcall sleep_100ms
-	rcall sleep_100ms
-	rcall sleep_100ms
+		do_lcd_command LCD_HOME_LINE
+		do_lcd_char 'F'
+		do_lcd_char 'U'
+		do_lcd_char 'C'
+		do_lcd_char 'K'
+		do_lcd_char ' '
+		do_lcd_char 'R'
+		do_lcd_char 'E'
+		do_lcd_char 'S'
+		do_lcd_char 'E'
+		do_lcd_char 'T'
+		do_lcd_char '!'
+		call sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
+
+
 	jmp Initialisation
 
 ;======================Deals with initialising all the station names and station times==========================
 Initialisation:
+	cli
+
 	in YL, SPL
 	in YH, SPH
 	sbiw Y, 4
@@ -325,10 +359,9 @@ Initialisation:
 
 	call findStopTime
 
+	call sleep_100ms
+
 	
-		
-
-
 	jmp start_emulator
 	
 
@@ -352,11 +385,11 @@ start_emulator:
 	do_lcd_char 'I'
 	do_lcd_char 'T'
 
-	rcall sleep_1s
-	rcall sleep_1s
-	rcall sleep_1s
-	rcall sleep_1s
-	rcall sleep_1s
+	call sleep_1s
+	; call sleep_1s
+	; call sleep_1s
+	; call sleep_1s
+	; call sleep_1s
 	do_lcd_command LCD_DISP_CLR
 	do_lcd_command LCD_HOME_LINE
 	do_lcd_char 'E'
@@ -367,18 +400,194 @@ start_emulator:
 	do_lcd_char 'T'
 	do_lcd_char 'E'
 
-	jmp emulator
+	sei
 
+	lds r15, Max_Stations
+	clr temp
+	clr secondCount
+	inc secondCount
+	ldi current_station, 1
+	call MotorStart
+	jmp emulator
 
 ;MonorailLoop:
 emulator:
-		ldi r16, 20
-		out PORTC, r16
-		rcall sleep_1s
-		ldi r16, 10
-		out PORTC, r16
-		rcall sleep_1s
-		jmp emulator	
+	cpi temp, 3 ;;;loops every 0.3seconds so finds if 1 second occured
+	breq second_occurred_jmp
+	jmp over_second_occured
+	second_occurred_jmp:
+		call second_occured
+
+	over_second_occured:
+
+	inc temp
+	call printStnName
+	
+	; call sleep_100ms
+	push r16
+	ldi r16, 20
+	out PORTC, r16
+	call sleep_one_third
+	ldi r16, 10
+	out PORTC, r16
+	call sleep_one_third
+	pop r16
+
+
+	jmp emulator
+
+second_occured:
+	inc secondCount
+	mov temp, current_station
+
+	call getting_time_between_station
+
+	;;now compare current_travel by the elapsed seconds
+	cp current_travel_time, secondCount
+	breq at_new_station 
+	jmp end_second_occured
+	
+	at_new_station:
+		clr secondCount
+		cpi stopFlag, 1
+		breq stationStop_call
+		jmp change_station
+
+		stationStop_call:
+			call stationStop
+			clr stopFlag
+		;
+		change_station:
+			inc current_station
+			lds r18, Max_Stations	
+			cp r18, current_station
+			breq station_loop_around
+			jmp end_second_occured
+			station_loop_around:
+				ldi current_station, 1
+
+	end_second_occured:
+		clr temp
+		ret
+
+
+getting_time_between_station:
+
+	cpi r16, 1
+	breq get_time_1
+	cpi r16, 2
+	breq get_time_2
+	cpi r16, 3
+	breq get_time_4
+	cpi r16, 5
+	breq get_time_5
+	jmp second_occured_bunch
+	get_time_1:
+		
+		lds current_travel_time, time1
+		jmp got_current_travel
+	get_time_2:
+		lds current_travel_time, time2
+		jmp got_current_travel
+	get_time_3:
+		lds current_travel_time, time3		
+		jmp got_current_travel
+	get_time_4:
+		lds current_travel_time, time5
+		jmp got_current_travel
+	get_time_5:
+		lds current_travel_time, time5
+		jmp got_current_travel
+	;compare second against time1, time2, etc
+	second_occured_bunch:
+	cpi r16, 6
+	breq get_time_6
+	cpi r16, 7
+	breq get_time_7
+	cpi r16, 8
+	breq get_time_8
+	cpi r16, 9
+	breq get_time_9
+	cpi r16, 10
+	breq get_time_10
+	get_time_6:
+		lds current_travel_time, time6
+		jmp got_current_travel
+	get_time_7:
+		lds current_travel_time, time7
+		jmp got_current_travel
+	get_time_8:
+		lds current_travel_time, time8	
+		jmp got_current_travel
+	get_time_9:
+		lds current_travel_time, time9
+		jmp got_current_travel
+	get_time_10:
+		lds current_travel_time, time10
+		jmp got_current_travel
+
+	got_current_travel:
+		clr temp
+		ret
+
+;; Stops the train at station for max stop time
+stationStop:	;;;
+	call MotorStop
+	push temp
+	push r18
+	push r16
+	ldi r16, 3
+	clr temp
+	lds r18, Max_Stoptime
+	stationStopLoop:
+		cp r18, temp
+		breq stop_time_done
+		inc temp
+		call sleep_1s
+		jmp stationStopLoop	
+	stop_time_done:
+	pop r16
+	pop r18
+	pop temp
+	call MotorStart
+	ret		
+
+MotorStart:
+		push temp
+		clr temp
+		ldi temp,0x7E
+		sts OCR3BL, temp		;Determine duty free
+		clr temp
+		sts OCR3BH, temp
+		pop temp
+		ret
+
+MotorStop:
+		push temp
+		clr temp
+		ldi temp,0x00
+		sts OCR3BL, temp		;Determine duty free
+		clr temp
+		sts OCR3BH, temp
+		
+		pop temp
+		ret
+
+
+BUTTONINTERRUPT:
+	cli 
+	push r16
+	ldi stopFlag, 1
+	ldi r16, 244
+	out PORTC, r16
+	call sleep_1s
+	clr r16
+	out PORTC, r16
+	pop r16
+	reti
+
+
+
 
 
 
@@ -689,6 +898,127 @@ printStatements:
 		ret
 
 
+	printStnName:
+		push yL
+		push yH
+		push r15
+		push r16
+		push current_station
+		mov r16, current_station
+		cpi r16, 1
+		breq print_stn1_Name
+		cpi r16, 2
+		breq print_stn2_Name
+		cpi r16, 3
+		breq print_stn3_Name
+		cpi r16, 4
+		breq print_stn4_Name
+		cpi r16, 5
+		breq print_stn5_Name
+
+		jmp print_next_stn_name_bunch
+		print_stn1_Name:
+			ldi yL, low(Station1)
+			ldi yH, high(Station1)
+			call printStation
+			jmp print_names_full
+
+		print_stn2_Name:
+			ldi yL, low(Station2)
+			ldi yH, high(Station2)
+			call printStation
+			jmp print_names_full
+
+		print_stn3_Name:
+			ldi yL, low(Station3)
+			ldi yH, high(Station3)
+			call printStation
+			jmp print_names_full
+
+		print_stn4_Name:
+			ldi yL, low(Station4)
+			ldi yH, high(Station4)
+			call printStation
+			jmp print_names_full
+
+		print_stn5_Name:
+			ldi yL, low(Station5)
+			ldi yH, high(Station5)
+			call printStation
+			jmp print_names_full
+
+		print_next_stn_name_bunch:
+		cpi r16, 6
+		breq print_stn6_Name
+		cpi r16, 7
+		breq print_stn7_Name
+		cpi r16, 8
+		breq print_stn8_Name
+		cpi r16, 9
+		breq print_stn9_Name
+		cpi r16, 10
+		breq print_stn10_Name
+		;;
+		print_stn6_Name:
+			ldi yL, low(Station6)
+			ldi yH, high(Station6)
+			call printStation
+			jmp print_names_full
+
+		print_stn7_Name:
+			ldi yL, low(Station7)
+			ldi yH, high(Station7)
+			call printStation
+			jmp print_names_full
+
+		print_stn8_Name:
+			ldi yL, low(Station8)
+			ldi yH, high(Station8)
+			call printStation
+			jmp print_names_full
+
+		print_stn9_Name:
+			ldi yL, low(Station9)
+			ldi yH, high(Station9)
+			call printStation
+			jmp print_names_full
+
+		print_stn10_Name:
+			ldi yL, low(Station10)
+			ldi yH, high(Station10)
+			call printStation
+			jmp print_names_full
+		
+		print_names_full:
+		pop current_station
+		pop r16
+		pop r15
+		pop yH
+		pop yL
+
+		ret
+
+	printStation:
+		ld stringLength, y+
+		push r16
+		push r17
+		clr r17
+
+		do_lcd_command LCD_DISP_CLR
+		do_lcd_command LCD_HOME_LINE
+
+		for_print_station_loop:
+			ld r16, y+
+			do_lcd_data r16
+			inc r17
+			cp r17, stringLength
+			brne for_print_station_loop
+
+		pop r17
+		pop r16
+		ret 
+	
+
 findStopTime:
 	call printEnterStopTime
 	call sleep_500ms
@@ -743,7 +1073,7 @@ FindTimes:
 			jmp times_full
 		over_times_full:
 		out PORTC, r16
-		rcall sleep_100ms
+		call sleep_100ms
 
 		cpi r16, 1
 		breq stn1Time
@@ -761,7 +1091,6 @@ FindTimes:
 			ldi yH, high(time1)
 			call INT_KEYPAD
 			lds r16, temporary_string
-			; out PORTC, r16
 			cpi r16, 11
 			brsh stn1Time_Big
 			st Y, r16
@@ -769,7 +1098,6 @@ FindTimes:
 			stn1Time_Big:
 			call print_TooLARGE
 			jmp stn1Time
-			
 		stn2Time:
 			do_lcd_command 0b10001011
 			do_lcd_char '2'
@@ -778,7 +1106,6 @@ FindTimes:
 			ldi yH, high(time2)
 			call INT_KEYPAD
 			lds r16, temporary_string
-			; out PORTC, r16
 			cpi r16, 11
 			brsh stn2Time_Big
 			st Y, r16
@@ -794,7 +1121,6 @@ FindTimes:
 			ldi yH, high(time3)
 			call INT_KEYPAD
 			lds r16, temporary_string
-			; out PORTC, r16
 			cpi r16, 11
 			brsh stn3Time_Big
 			st Y, r16
@@ -809,7 +1135,6 @@ FindTimes:
 		cpi r16, 5
 		breq stn5Time
 		jmp next_time_bunch2
-		
 		stn4Time:
 			do_lcd_command 0b10001011
 			do_lcd_char '4'
@@ -842,7 +1167,6 @@ FindTimes:
 			stn5Time_Big:
 			call print_TooLARGE
 			jmp stn5Time
-		
 		next_time_bunch2:
 
 		cpi r16, 6
@@ -851,7 +1175,6 @@ FindTimes:
 		breq stn7Time
 		cpi r16, 8
 		breq stn8Time
-
 		jmp next_stn_name_bunch3
 		stn6Time:
 			do_lcd_command 0b10001011
@@ -861,7 +1184,6 @@ FindTimes:
 			ldi yH, high(time6)
 			call INT_KEYPAD
 			lds r16, temporary_string
-			; out PORTC, r16
 			cpi r16, 11
 			brsh stn6Time_Big
 			st Y, r16
@@ -869,7 +1191,6 @@ FindTimes:
 			stn6Time_Big:
 			call print_TooLARGE
 			jmp stn6Time
-			
 		stn7Time:
 			do_lcd_command 0b10001011
 			do_lcd_char '7'
@@ -974,7 +1295,7 @@ FindStnNames:
 			jmp names_full
 		over_names_full:
 		out PORTC, r16
-		rcall sleep_100ms
+		call sleep_100ms
 		clr stringLength
 
 		cpi r16, 1
@@ -1193,8 +1514,8 @@ STRING_KEYPAD_CALL:
 		cpi stringLength, 0
 		breq no_string
 		; SAVE THE STRING
-		rcall sleep_100ms
-		rcall sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
 		jmp endString
 
 	no_string:
@@ -1213,8 +1534,8 @@ STRING_KEYPAD_CALL:
 		endString_JMP:
 			jmp endString
 		overEndstring_jmp:
-		rcall sleep_100ms
-		rcall sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
 		mov r22, temp
 		cpi InputCountFlag, 0
 		brne convertTwoOne_jmp
@@ -1283,10 +1604,10 @@ STRING_KEYPAD_CALL:
 				ldi r22, 'I'
 				jmp printVal_string
 			endConvert_string:
-			rcall sleep_25ms
-			rcall sleep_25ms
-			rcall sleep_25ms
-			rcall sleep_100ms
+			call sleep_25ms
+			call sleep_25ms
+			call sleep_25ms
+			call sleep_100ms
 			jmp STRING_KEYPAD
 		convertTwoOne:
 		
@@ -1427,8 +1748,8 @@ STRING_KEYPAD_CALL:
 
 		printVal_string:
 			inc stringLength
-			rcall lcd_data
-			rcall lcd_wait
+			call lcd_data
+			call lcd_wait
 			st Y+, r22
 			rjmp endConvert_string
 	
@@ -1437,8 +1758,8 @@ STRING_KEYPAD_CALL:
 
 		
 		;ldi r22, '='
-		;rcall lcd_data
-		;rcall lcd_wait
+		;call lcd_data
+		;call lcd_wait
 		pop r16
 		ret
 	; called when '*' is pressed
@@ -1556,16 +1877,16 @@ INT_KEYPAD:
 
 	int_end:
 		do_lcd_data temp
-		rcall sleep_100ms
-		rcall sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
 		st y+, temp
 		inc r21 ;number is only ever 2 digits long
 		cpi r21, 2
 		brlo Int_start_jmp
 		
 	int_parse:
-		rcall sleep_100ms
-		rcall sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
 		;do_lcd_char '*'
 		push temp
 		push r17
@@ -1695,46 +2016,56 @@ sleepstuff:
 		ret
 		
 	sleep_5ms:
-		rcall sleep_1ms
-		rcall sleep_1ms
-		rcall sleep_1ms
-		rcall sleep_1ms
-		rcall sleep_1ms
+		call sleep_1ms
+		call sleep_1ms
+		call sleep_1ms
+		call sleep_1ms
+		call sleep_1ms
 		ret
 
 	sleep_25ms:
-		rcall sleep_5ms
-		rcall sleep_5ms
-		rcall sleep_5ms
-		rcall sleep_5ms
-		rcall sleep_5ms
+		call sleep_5ms
+		call sleep_5ms
+		call sleep_5ms
+		call sleep_5ms
+		call sleep_5ms
 		ret
 
 	sleep_100ms:
-		rcall sleep_25ms
-		rcall sleep_25ms
-		rcall sleep_25ms
-		rcall sleep_25ms
+		call sleep_25ms
+		call sleep_25ms
+		call sleep_25ms
+		call sleep_25ms
+		ret
+
+	sleep_one_third:
+		call sleep_100ms
+		call sleep_25ms
+		call sleep_25ms
+		call sleep_5ms
+		call sleep_5ms
+		call sleep_5ms
+		call sleep_1ms
 		ret
 	
 	sleep_500ms:
-		rcall sleep_100ms
-		rcall sleep_100ms
-		rcall sleep_100ms
-		rcall sleep_100ms
-		rcall sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
 		ret
 
 	sleep_1s:
-		rcall sleep_100ms
-		rcall sleep_100ms
-		rcall sleep_100ms
-		rcall sleep_100ms
-		rcall sleep_100ms
-		rcall sleep_100ms
-		rcall sleep_100ms
-		rcall sleep_100ms
-		rcall sleep_100ms
-		rcall sleep_100ms
-		rcall sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
+		call sleep_100ms
 		ret
