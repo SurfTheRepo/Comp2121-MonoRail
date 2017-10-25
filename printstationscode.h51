@@ -7,21 +7,14 @@ printStnNames:
 	lds r15, Max_Stations 
 	inc r15
 	;;get back Max_Stations
-	printprint_stnNameLoop:
+	printprinted:
 		inc r16 
 		cp r16, r15
-		brsh print_names_full_JMP
-		
-		do_lcd_command LCD_DISP_CLR
-		call printEnterStation		
-		subi r16, -'0'
-		do_lcd_data r16
-		subi r16, '0'
-		do_lcd_command LCD_SEC_LINE
+		brsh printed_JMP
 		
 		jmp print_over_names_full
-		print_names_full_JMP:
-			jmp print_names_full
+		printed_JMP:
+			jmp printed
 		print_over_names_full:
 		out PORTC, r16
 		rcall sleep_100ms
@@ -43,31 +36,31 @@ printStnNames:
 			ldi yL, low(Station1)
 			ldi yH, high(Station1)
 			call printStation
-			jmp print_stnNameLoop
+			jmp printed
 
 		print_stn2_Name:
 			ldi yL, low(Station2)
 			ldi yH, high(Station2)
 			call printStation
-			jmp print_stnNameLoop
+			jmp printed
 
 		print_stn3_Name:
 			ldi yL, low(Station3)
 			ldi yH, high(Station3)
 			call printStation
-			jmp print_stnNameLoop
+			jmp printed
 
 		print_stn4_Name:
 			ldi yL, low(Station4)
 			ldi yH, high(Station4)
 			call printStation
-			jmp print_stnNameLoop
+			jmp printed
 
 		print_stn5_Name:
 			ldi yL, low(Station5)
 			ldi yH, high(Station5)
 			call printStation
-			jmp print_stnNameLoop
+			jmp printed
 
 		print_next_stn_name_bunch:
 		cpi r16, 6
@@ -85,33 +78,33 @@ printStnNames:
 			ldi yL, low(Station6)
 			ldi yH, high(Station6)
 			call printStation
-			jmp print_stnNameLoop
+			jmp printed
 
 		print_stn7_Name:
 			ldi yL, low(Station7)
 			ldi yH, high(Station7)
 			call printStation
-			jmp print_stnNameLoop
+			jmp printed
 
 		print_stn8_Name:
 			ldi yL, low(Station8)
 			ldi yH, high(Station8)
 			call printStation
-			jmp print_stnNameLoop
+			jmp printed
 
 		print_stn9_Name:
 			ldi yL, low(Station9)
 			ldi yH, high(Station9)
 			call printStation
-			jmp print_stnNameLoop
+			jmp printed
 
 		print_stn10_Name:
 			ldi yL, low(Station10)
 			ldi yH, high(Station10)
 			call printStation
-			jmp print_stnNameLoop
+			jmp printed
 		
-		print_names_full:
+		printed:
 		
         pop r16
         pop r15
