@@ -398,19 +398,7 @@ start_emulator:
 	do_lcd_char 'T'
 
 	call sleep_1s
-	; call sleep_1s
-	; call sleep_1s
-	; call sleep_1s
-	; call sleep_1s
-	do_lcd_command LCD_DISP_CLR
-	do_lcd_command LCD_HOME_LINE
-	do_lcd_char 'E'
-	do_lcd_char 'M'
-	do_lcd_char 'U'
-	do_lcd_char 'L'
-	do_lcd_char 'A'
-	do_lcd_char 'T'
-	do_lcd_char 'E'
+	
 
 	sei
 
@@ -1244,6 +1232,8 @@ number_stations:
 	out PORTC, r16
 	cpi r16, 11
 	brsh number_stations
+	cpi r16, 1
+	brlo number_stations
 	
 	sts Max_Stations, r16
 	ret
