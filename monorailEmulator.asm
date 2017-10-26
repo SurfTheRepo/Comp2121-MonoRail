@@ -555,19 +555,24 @@ stationStop:	;;;
 		cp r18, temp
 		breq stop_time_done
 		inc temp
+		ldi r17, 40
+		out PORTC, r17
 		call pollForHash_THIRDSECSLEEP
 		call MotorStop
 		call sleep_100ms
+		call sleep_25ms
 		ldi r17, 20
 		out PORTC, r17
 		call pollForHash_THIRDSECSLEEP
 		call MotorStop
 		call sleep_100ms
+		call sleep_25ms
 		ldi r17, 10
 		out PORTC, r17
 		call pollForHash_THIRDSECSLEEP
 		call MotorStop	
-		call sleep_100ms	
+		call sleep_100ms
+		call sleep_25ms	
 		jmp stationStopLoop	
 	stop_time_done:
 	pop r17
@@ -584,6 +589,8 @@ MotorStart:
 		sts OCR3BL, temp		;Determine duty free
 		clr temp
 		sts OCR3BH, temp
+		ldi temp, 0
+		out PORTC, temp
 		pop temp
 		ret
 
