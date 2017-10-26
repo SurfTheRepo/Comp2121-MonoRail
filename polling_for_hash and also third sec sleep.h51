@@ -1,0 +1,82 @@
+pollFor#333ms:  
+    push mask
+    push temp
+    push col
+    push row
+    push temp2
+    push r22
+    clr r22
+
+    start_polling:
+    inc r22
+    call sleep_1ms
+    lds temp, STOP_EVERYTHING_FLAG
+    cpi temp, 1
+    breq poll_colloop
+    cpi r22, 255
+    breq STARTEVERTHING
+
+    poll_colloop:
+		STS PORTL, mask ; set column to mask value (sets column 0 off)
+		ldi temp, 0xFF ; implement a poll_delay so the hardware can stabilize
+
+	poll_delay:
+		dec temp
+		brne poll_delay
+		LDS temp, PINL ; read PORTL. Cannot use in 
+		andi temp, ROWMASK ; read only the row bits
+		cpi temp, 0xF ; check if any rows are grounded
+		breq poll_nextcol ; if not go to the next column
+		ldi mask, INITROWMASK ; initialise row check
+		clr row ; initial row
+
+	poll_rowloop:      
+		mov temp2, temp
+		and temp2, mask ; check masked bit
+		brne poll_skipconv ; if the result is non-zero, we need to look again
+		jmp poll_convert ; if bit is clear, poll_convert the bitcode
+
+	poll_skipconv:
+		inc row ; else move to the next row
+		lsl mask ; shift the mask to the next bit
+		jmp poll_rowloop    
+		
+	poll_nextcol:     
+		cpi col, 3 ; check if we are on the last column
+		breq start_polling ; if so, no buttons were pushed,
+		; so start again.
+
+		sec ; else shift the column mask:
+
+		rol mask ; and then rotate left by a bit, shifting the carry into bit zero. We need this to make sure all the rows have pull-up resistors
+		inc col ; increment column value
+		jmp poll_colloop ; and check the next column poll_convert function poll_converts the row and column given to a binary number and also outputs the value to PORTC. 
+		; Inputs come from registers row and col and output is in temp.
+
+	poll_convert:
+		cpi row, 3 ; if row is 3 we have a symbol or 0
+		breq poll_hash
+
+        jmp start_polling
+
+    poll_hash:
+        lds temp, STOP_EVERYTHING_FLAG
+        cpi temp, 1
+        breq STARTEVERTHING
+        ldi temp, 1
+        sts STOP_EVERYTHING_FLAG, temp
+        call MotorStop
+        jmp start_polling
+
+    STARTEVERTHING:
+        ldi temp, 0
+        sts STOP_EVERYTHING_FLAG, temp
+        call MotorStart
+        pop r22
+        pop temp2
+        pop row
+        pop col
+        pop temp
+        pop mask
+        
+        ret

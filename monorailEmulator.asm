@@ -195,6 +195,8 @@
     time9:     .byte 1
     time10:    .byte 1
 
+	STOP_EVERYTHING_FLAG:	.byte 1
+
 	temporary_string: .byte 10
 	
 .cseg	;;; Got this table from lecture slides
@@ -249,10 +251,14 @@
 	Print_too_Small: .db "Too Small Redo"
 	Print_Stop_times: .db "Enter Stop Time:";16
 	Print_No_String: .db "Plz Enter String" ;16
+	Print_Next_Station: .db "Next Station:" ;13
+	Print_Stopped_At: .db "Stopped at Stn:" ;15
 DEFAULT:
 	reti							; used for interrupts that are not handled
 
 RESET:
+		clr temp
+		sts STOP_EVERYTHING_FLAG, temp
 	;========Setting Up stack=============
 		ldi r16, low(RAMEND)
 		out SPL, r16
@@ -288,6 +294,12 @@ RESET:
 		sts TCCR3A, temp
 		ldi temp, (1<<CS31)
 		sts TCCR3B, temp		; Prescaling value=8
+
+		ldi temp,0x00
+		sts OCR3BL, temp		;Determine duty free
+		clr temp
+		sts OCR3BH, temp
+		
 		
 	;==========keyPadInit======;
 		ldi temp, PORTLDIR ; columns are outputs, rows are inputs
@@ -353,7 +365,7 @@ Initialisation:
 	
 	call FindStnNames
 
-	call sleep_1s
+	;call sleep_1s
 
 	call FindTimes
 
@@ -405,13 +417,13 @@ start_emulator:
 	lds r15, Max_Stations
 	clr temp
 	clr secondCount
-	inc secondCount
 	ldi current_station, 1
 	call MotorStart
 	jmp emulator
 
 ;MonorailLoop:
 emulator:
+	do_lcd_command 0b00001100 ;==================NO CURSOR
 	cpi temp, 3 ;;;loops every 0.3seconds so finds if 1 second occured
 	breq second_occurred_jmp
 	jmp over_second_occured
@@ -421,16 +433,20 @@ emulator:
 	over_second_occured:
 
 	inc temp
+	call printNextStation
+	do_lcd_command LCD_SEC_LINE
 	call printStnName
 	
 	; call sleep_100ms
 	push r16
 	ldi r16, 20
-	out PORTC, r16
-	call sleep_one_third
+	;out PORTC, r16
+	;call sleep_one_third
+	call pollForHash_THIRDSECSLEEP
 	ldi r16, 10
-	out PORTC, r16
-	call sleep_one_third
+	;out PORTC, r16
+	;call sleep_one_third
+	call pollForHash_THIRDSECSLEEP
 	pop r16
 
 
@@ -441,6 +457,8 @@ second_occured:
 	mov temp, current_station
 
 	call getting_time_between_station
+	;out PORTC, secondCount ;================DEBUGGIN PRINT
+	;out PORTC , current_travel_time ;===============debugging print
 
 	;;now compare current_travel by the elapsed seconds
 	cp current_travel_time, secondCount
@@ -459,7 +477,8 @@ second_occured:
 		;
 		change_station:
 			inc current_station
-			lds r18, Max_Stations	
+			lds r18, Max_Stations
+			inc r18	
 			cp r18, current_station
 			breq station_loop_around
 			jmp end_second_occured
@@ -478,12 +497,13 @@ getting_time_between_station:
 	cpi r16, 2
 	breq get_time_2
 	cpi r16, 3
+	breq get_time_3
+	cpi r16, 4
 	breq get_time_4
 	cpi r16, 5
 	breq get_time_5
 	jmp second_occured_bunch
-	get_time_1:
-		
+	get_time_1:	
 		lds current_travel_time, time1
 		jmp got_current_travel
 	get_time_2:
@@ -532,10 +552,14 @@ getting_time_between_station:
 
 ;; Stops the train at station for max stop time
 stationStop:	;;;
+	call printStopped
+	do_lcd_command LCD_SEC_LINE
+	call printStnName
 	call MotorStop
 	push temp
 	push r18
 	push r16
+	push r17
 	ldi r16, 3
 	clr temp
 	lds r18, Max_Stoptime
@@ -543,9 +567,22 @@ stationStop:	;;;
 		cp r18, temp
 		breq stop_time_done
 		inc temp
-		call sleep_1s
+		call pollForHash_THIRDSECSLEEP
+		call MotorStop
+		call sleep_100ms
+		ldi r17, 20
+		out PORTC, r17
+		call pollForHash_THIRDSECSLEEP
+		call MotorStop
+		call sleep_100ms
+		ldi r17, 10
+		out PORTC, r17
+		call pollForHash_THIRDSECSLEEP
+		call MotorStop	
+		call sleep_100ms	
 		jmp stationStopLoop	
 	stop_time_done:
+	pop r17
 	pop r16
 	pop r18
 	pop temp
@@ -576,18 +613,117 @@ MotorStop:
 
 BUTTONINTERRUPT:
 	cli 
+	rcall sleep_25ms
 	push r16
 	ldi stopFlag, 1
-	ldi r16, 244
+	ldi r16, 255
 	out PORTC, r16
-	call sleep_1s
+	;call sleep_1s
 	clr r16
 	out PORTC, r16
 	pop r16
 	reti
 
 
+;=======================================POLLING FOR #=====================================;
+pollForHash_THIRDSECSLEEP:  
+    push mask
+    push temp
+    push col
+    push row
+    push temp2
+    push r23
+    clr r23
 
+    start_polling:
+	ldi mask, INITCOLMASK ; initial column mask
+	clr col
+    inc r23
+    call sleep_1ms
+    lds temp, STOP_EVERYTHING_FLAG
+	;out PORTC, temp
+    cpi temp, 1
+    breq poll_colloop
+
+    cpi r23, 50
+    breq STARTEVERTHING
+
+    poll_colloop:
+		STS PORTL, mask ; set column to mask value (sets column 0 off)
+		ldi temp, 0xFF ; implement a poll_delay so the hardware can stabilize
+
+	poll_delay:
+		dec temp
+		brne poll_delay
+		LDS temp, PINL ; read PORTL. Cannot use in 
+		andi temp, ROWMASK ; read only the row bits
+		cpi temp, 0xF ; check if any rows are grounded
+		breq poll_nextcol ; if not go to the next column
+		ldi mask, INITROWMASK ; initialise row check
+		clr row ; initial row
+
+	poll_rowloop:      
+		mov temp2, temp
+		and temp2, mask ; check masked bit
+		brne poll_skipconv ; if the result is non-zero, we need to look again
+		jmp poll_convert ; if bit is clear, poll_convert the bitcode
+
+	poll_skipconv:
+		inc row ; else move to the next row
+		lsl mask ; shift the mask to the next bit
+		jmp poll_rowloop    
+		
+	poll_nextcol:     
+		cpi col, 3 ; check if we are on the last column
+		breq start_polling ; if so, no buttons were pushed,
+		; so start again.
+
+		sec ; else shift the column mask:
+
+		rol mask ; and then rotate left by a bit, shifting the carry into bit zero. We need this to make sure all the rows have pull-up resistors
+		inc col ; increment column value
+		jmp poll_colloop ; and check the next column poll_convert function poll_converts the row and column given to a binary number and also outputs the value to PORTC. 
+		; Inputs come from registers row and col and output is in temp.
+
+	poll_convert:
+		cpi row, 3 ; if row is 3 we have a symbol or 0
+		breq poll_hash_possible
+
+        jmp start_polling
+
+	poll_hash_possible:
+		cpi col, 2
+		breq poll_hash
+
+		jmp start_polling
+
+    poll_hash:
+		call sleep_25ms
+        lds temp, STOP_EVERYTHING_FLAG
+		;out PORTC, temp
+        cpi temp, 1
+        breq STARTEVERTHING
+        ldi temp, 1
+        sts STOP_EVERYTHING_FLAG, temp
+        call MotorStop
+		call sleep_1s
+        jmp start_polling
+
+    STARTEVERTHING:
+        ldi temp, 0
+        sts STOP_EVERYTHING_FLAG, temp
+       
+		rcall sleep_25ms
+		;rcall sleep_25ms
+		rcall sleep_100ms
+        pop r23
+        pop temp2
+        pop row
+        pop col
+        pop temp
+        pop mask
+        call MotorStart
+        ret
 
 
 
@@ -652,6 +788,64 @@ printStatements:
 			inc r17
 			cpi r17, 12
 			brlo for_Print_Enter_Station
+
+		pop Zh
+		pop Zl
+		pop r17
+		pop r16
+
+		ret
+
+		printNextStation:
+		;prologue
+		push r16
+		push r17
+		push Zl
+		push Zh
+		ldi Zl,low(Print_Next_Station<<1)	
+		ldi Zh,high(Print_Next_Station<<1)
+
+		;body ==== print stuff =====;
+		clr r17
+
+		do_lcd_command LCD_DISP_CLR
+		do_lcd_command LCD_HOME_LINE
+		
+		for_Print_Next_Station:
+			lpm r16, z+
+			do_lcd_data r16
+			inc r17
+			cpi r17, 13
+			brlo for_Print_Next_Station
+
+		pop Zh
+		pop Zl
+		pop r17
+		pop r16
+
+		ret
+
+		printStopped:
+		;prologue
+		push r16
+		push r17
+		push Zl
+		push Zh
+		ldi Zl,low(Print_Stopped_At<<1)	
+		ldi Zh,high(Print_Stopped_At<<1)
+
+		;body ==== print stuff =====;
+		clr r17
+
+		do_lcd_command LCD_DISP_CLR
+		do_lcd_command LCD_HOME_LINE
+		
+		for_Print_Stopped_At:
+			lpm r16, z+
+			do_lcd_data r16
+			inc r17
+			cpi r17, 15
+			brlo for_Print_Stopped_At
 
 		pop Zh
 		pop Zl
@@ -1004,8 +1198,7 @@ printStatements:
 		push r17
 		clr r17
 
-		do_lcd_command LCD_DISP_CLR
-		do_lcd_command LCD_HOME_LINE
+		
 
 		for_print_station_loop:
 			ld r16, y+
@@ -1079,21 +1272,17 @@ FindTimes:
 		breq stn1Time
 		cpi r16, 2
 		breq stn2Time
-		cpi r16, 3
-		breq stn3Time
 		
 		jmp next_time_bunch1
 		stn1Time:
 			do_lcd_command 0b10001011
 			do_lcd_char '1'
 			do_lcd_command LCD_SEC_LINE
-			ldi yL, low(time1)
-			ldi yH, high(time1)
 			call INT_KEYPAD
 			lds r16, temporary_string
 			cpi r16, 11
 			brsh stn1Time_Big
-			st Y, r16
+			sts time1, r16
 			jmp stnTimeLoop
 			stn1Time_Big:
 			call print_TooLARGE
@@ -1102,13 +1291,11 @@ FindTimes:
 			do_lcd_command 0b10001011
 			do_lcd_char '2'
 			do_lcd_command LCD_SEC_LINE
-			ldi yL, low(time2)
-			ldi yH, high(time2)
 			call INT_KEYPAD
 			lds r16, temporary_string
 			cpi r16, 11
 			brsh stn2Time_Big
-			st Y, r16
+			sts time2, r16
 			jmp stnTimeLoop
 			stn2Time_Big:
 			call print_TooLARGE
@@ -1117,36 +1304,35 @@ FindTimes:
 			do_lcd_command 0b10001011
 			do_lcd_char '3'
 			do_lcd_command LCD_SEC_LINE
-			ldi yL, low(time3)
-			ldi yH, high(time3)
 			call INT_KEYPAD
 			lds r16, temporary_string
 			cpi r16, 11
 			brsh stn3Time_Big
-			st Y, r16
+			sts time3, r16
 			jmp stnTimeLoop
 			stn3Time_Big:
 			call print_TooLARGE
 			jmp stn3Time
 
 		next_time_bunch1:
+		cpi r16, 3
+		breq stn3Time
 		cpi r16, 4
 		breq stn4Time
 		cpi r16, 5
 		breq stn5Time
 		jmp next_time_bunch2
+
 		stn4Time:
 			do_lcd_command 0b10001011
 			do_lcd_char '4'
 			do_lcd_command LCD_SEC_LINE
-			ldi yL, low(time4)
-			ldi yH, high(time4)
 			call INT_KEYPAD
 			lds r16, temporary_string
 			; out PORTC, r16
 			cpi r16, 11
 			brsh stn4Time_Big
-			st Y, r16
+			sts time4, r16
 			jmp stnTimeLoop
 			stn4Time_Big:
 			call print_TooLARGE
@@ -1155,14 +1341,12 @@ FindTimes:
 			do_lcd_command 0b10001011
 			do_lcd_char '5'
 			do_lcd_command LCD_SEC_LINE
-			ldi yL, low(time5)
-			ldi yH, high(time5)
 			call INT_KEYPAD
 			lds r16, temporary_string
 			; out PORTC, r16
 			cpi r16, 11
 			brsh stn5Time_Big
-			st Y, r16
+			sts time5, r16
 			jmp stnTimeLoop
 			stn5Time_Big:
 			call print_TooLARGE
@@ -1173,20 +1357,17 @@ FindTimes:
 		breq stn6Time
 		cpi r16, 7
 		breq stn7Time
-		cpi r16, 8
-		breq stn8Time
 		jmp next_stn_name_bunch3
+
 		stn6Time:
 			do_lcd_command 0b10001011
 			do_lcd_char '6'
 			do_lcd_command LCD_SEC_LINE
-			ldi yL, low(time6)
-			ldi yH, high(time6)
 			call INT_KEYPAD
 			lds r16, temporary_string
 			cpi r16, 11
 			brsh stn6Time_Big
-			st Y, r16
+			sts time6, r16
 			jmp stnTimeLoop
 			stn6Time_Big:
 			call print_TooLARGE
@@ -1195,14 +1376,12 @@ FindTimes:
 			do_lcd_command 0b10001011
 			do_lcd_char '7'
 			do_lcd_command LCD_SEC_LINE
-			ldi yL, low(time7)
-			ldi yH, high(time7)
 			call INT_KEYPAD
 			lds r16, temporary_string
 			; out PORTC, r16
 			cpi r16, 11
 			brsh stn7Time_Big
-			st Y, r16
+			sts time7, r16
 			jmp stnTimeLoop
 			stn7Time_Big:
 			call print_TooLARGE
@@ -1211,14 +1390,12 @@ FindTimes:
 			do_lcd_command 0b10001011
 			do_lcd_char '8'
 			do_lcd_command LCD_SEC_LINE
-			ldi yL, low(time8)
-			ldi yH, high(time8)
 			call INT_KEYPAD
 			lds r16, temporary_string
 			; out PORTC, r16
 			cpi r16, 11
 			brsh stn8Time_Big
-			st Y, r16
+			sts time8, r16
 			jmp stnTimeLoop
 			stn8Time_Big:
 			call print_TooLARGE
@@ -1226,6 +1403,8 @@ FindTimes:
 
 		next_stn_name_bunch3:
 		
+		cpi r16, 8
+		breq stn8Time
 		cpi r16, 9
 		breq stn9Time
 		cpi r16, 10
@@ -1236,14 +1415,12 @@ FindTimes:
 			do_lcd_command 0b10001011
 			do_lcd_char '9'
 			do_lcd_command LCD_SEC_LINE
-			ldi yL, low(time9)
-			ldi yH, high(time9)
 			call INT_KEYPAD
 			lds r16, temporary_string
 			; out PORTC, r16
 			cpi r16, 11
 			brsh stn9Time_Big
-			st Y, r16
+			sts time9, r16
 			jmp stnTimeLoop
 			stn9Time_Big:
 			call print_TooLARGE
@@ -1254,14 +1431,12 @@ FindTimes:
 			do_lcd_char '1'
 			do_lcd_char '0'
 			do_lcd_command LCD_SEC_LINE
-			ldi yL, low(time10)
-			ldi yH, high(time10)
 			call INT_KEYPAD
 			lds r16, temporary_string
 			; out PORTC, r16
 			cpi r16, 11
 			brsh stn10Time_Big
-			st Y, r16
+			sts time10, r16
 			jmp stnTimeLoop
 			stn10Time_Big:
 			call print_TooLARGE
